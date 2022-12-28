@@ -1,4 +1,4 @@
 export interface IGame {
-    uuid: string;
+    id: string;
     name: string
 }

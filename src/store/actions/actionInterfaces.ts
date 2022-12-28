@@ -7,9 +7,7 @@ export interface RetrieveGamesAction {
 
 export interface AddGameAction {
     type: "ADD_GAME",
-    payload: {
-        data: IGame
-    }
+    payload: IGame
 }
 
 export interface DeleteGameByIdAction {
@@ -19,9 +17,7 @@ export interface DeleteGameByIdAction {
 
 export interface EditGameAction {
     type: "EDIT_GAME",
-    payload: {
-        data: IGame
-    }
+    payload: IGame
 }
 
 
