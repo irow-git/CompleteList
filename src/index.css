@@ -4,6 +4,28 @@
     url("./fonts/joystix-monospace.ttf") format("truetype");
   font-weight: bold;
 }
+@font-face {
+  font-family: "Chava-Regular";
+  src: local("Chava-Regular"),
+    url("./fonts/Chava-Regular.ttf") format("truetype");
+}
+
+/* -------------------ANTD TABLE------------------- */
+
+.ant-table table {
+  font-family: "Chava-Regular";
+  font-size: 1.2em;
+}
+
+thead[class*="ant-table-thead"] th{
+  text-align: center !important;
+}
+
+.ant-empty-image {
+  display: none;
+}
+
+/* ------------------------------------------------- */
 
 body {
   margin: 0;

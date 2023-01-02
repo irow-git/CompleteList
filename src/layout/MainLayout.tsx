@@ -1,105 +1,100 @@
-import React, { useState } from "react";
-import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  DesktopOutlined,
-  FileOutlined,
-  PieChartOutlined,
-  TeamOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
-import { List, Menu, MenuProps, Space } from "antd";
+import { List, Space } from "antd";
 import { Layout, theme } from "antd";
 import { Box, ListItem } from "@mui/material";
 
-const { Header, Content, Footer, Sider } = Layout;
-
-type MenuItem = Required<MenuProps>["items"][number];
-
-function getItem(
-  label: React.ReactNode,
-  key: React.Key,
-  icon?: React.ReactNode,
-  children?: MenuItem[]
-): MenuItem {
-  return {
-    key,
-    icon,
-    children,
-    label,
-  } as MenuItem;
-}
+const { Header, Content, Sider } = Layout;
 
 type MainProps = {
   children?: React.ReactNode;
 };
 
 const Main: React.FC<MainProps> = ({ children }) => {
-  const [collapsed, setCollapsed] = useState(false);
   const {
     token: { colorBgContainer },
   } = theme.useToken();
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
+    <Layout style={{ minHeight: "100vh", backgroundColor: "#dedbd3" }}>
       <Sider
         style={{
           background:
             "linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(114,108,120,0.9948354341736695) 100%)",
           color: "white",
-          minHeight: "100vh",
+          height: "920px",
+          marginLeft: "16px",
         }}
         trigger={null}
-        width="250px"
+        width="240px"
         collapsible
-        collapsed={collapsed}
-        onCollapse={(value) => setCollapsed(value)}
       >
-        {React.createElement(
-          collapsed ? MenuUnfoldOutlined : MenuFoldOutlined,
-          {
-            style: {
-              fontSize: "2em",
-              marginLeft: `${!collapsed ? "200px" : "30px"}`,
-              marginTop: "10px",
-            },
-            className: "trigger",
-            onClick: () => setCollapsed(!collapsed),
-          }
-        )}
         <List>
-          <Space style={{ marginBottom: "75px", marginTop: "75px" }}>
-            <img src={`${!collapsed? "/logo-2.png": "/logo.png"}`} width={!collapsed ? "208px" : "50px"} />
+          <Space style={{ marginBottom: "50px", marginTop: "50px" }}>
+            <img src="/logo.png" alt="logo" width="208px" draggable={false} />
           </Space>
           <Box>
-            <img
-              src={`${!collapsed ? "/line-7.png" : "line-4.png"}`}
-              width={`${!collapsed ? "105px" : "60px"}`}
-              style={{ float: "left", marginLeft: "2px", marginBottom: "20px" }}
-            />
-            <Box style={{ color: "white", fontFamily: "joystix-monospace" }}>
-              <ListItem>Table View</ListItem>
-              <ListItem>Card View</ListItem>
-              <ListItem>Letter View</ListItem>
+            <Box
+              style={{
+                color: "white",
+                fontFamily: "joystix-monospace",
+
+              }}
+            >
+              <ListItem className="navItem">Add One</ListItem>
+              <ListItem className="navItem">Add Many</ListItem>
             </Box>
             <img
-              src={`${!collapsed ? "/line-7.png" : "line-4.png"}`}
-              width={`${!collapsed ? "105px" : "60px"}`}
+              src="/line-7.png"
+              alt="line"
+              width="105px"
+              draggable={false}
+              style={{
+                float: "left",
+                marginLeft: "2px",
+                marginBottom: "20px",
+                marginTop: "20px",
+              }}
+            />
+            <Box
+              style={{
+                color: "white",
+                fontFamily: "joystix-monospace",
+              }}
+            >
+              <ListItem className="navItem">Table View</ListItem>
+              <ListItem className="navItem">Card View</ListItem>
+              <ListItem className="navItem">Letter View</ListItem>
+            </Box>
+            <img
+              src="/line-7.png"
+              alt="line"
+              width="105px"
+              draggable={false}
               style={{ float: "left", marginLeft: "2px", marginTop: "20px" }}
             />
           </Box>
         </List>
+        <img
+          src="/tear.png"
+          alt="tear"
+          draggable={false}
+          style={{ position: "relative", marginTop: "40px" }}
+        />
       </Sider>
-      <Layout className="site-layout">
+      <Layout className="site-layout" style={{ backgroundColor: "#dedbd3" }}>
         <Header
-          style={{ padding: 0, background: colorBgContainer, fontSize: "2em" }}
+          style={{
+            padding: 0,
+            background: "transparent",
+            fontSize: "2em",
+            marginBottom: "-16px",
+          }}
         >
           Complete List - Video Games
         </Header>
         <Content style={{ margin: "16px" }}>
           <Box
+            className="clip"
             style={{
-              borderRadius: "24px",
               padding: 24,
               minHeight: 360,
               background: colorBgContainer,
@@ -108,7 +103,6 @@ const Main: React.FC<MainProps> = ({ children }) => {
             {children}
           </Box>
         </Content>
-        <Footer style={{ textAlign: "center" }}>©2023 Created by II</Footer>
       </Layout>
     </Layout>
   );

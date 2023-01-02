@@ -13,6 +13,60 @@
   }
 }
 
+.navItem {
+  font-size: 1.2em;
+}
+
+.navItem:hover {
+  color: cyan;
+  cursor: pointer;
+}
+
+.clip {
+  clip-path: polygon(
+    0px 20px,
+    4px 20px,
+    4px 12px,
+    8px 12px,
+    8px 8px,
+    12px 8px,
+    12px 4px,
+    16px 4px,
+    20px 4px,
+    20px 0px,
+    calc(100% - 20px) 0px,
+    calc(100% - 20px) 4px,
+    calc(100% - 12px) 4px,
+    calc(100% - 12px) 8px,
+    calc(100% - 8px) 8px,
+    calc(100% - 8px) 12px,
+    calc(100% - 4px) 12px,
+    calc(100% - 4px) 16px,
+    calc(100% - 4px) 20px,
+    100% 20px,
+    100% calc(100% - 20px),
+    calc(100% - 4px) calc(100% - 20px),
+    calc(100% - 4px) calc(100% - 12px),
+    calc(100% - 8px) calc(100% - 12px),
+    calc(100% - 8px) calc(100% - 8px),
+    calc(100% - 12px) calc(100% - 8px),
+    calc(100% - 12px) calc(100% - 4px),
+    calc(100% - 16px) calc(100% - 4px),
+    calc(100% - 20px) calc(100% - 4px),
+    calc(100% - 20px) 100%,
+    20px 100%,
+    20px calc(100% - 4px),
+    12px calc(100% - 4px),
+    12px calc(100% - 8px),
+    8px calc(100% - 8px),
+    8px calc(100% - 12px),
+    4px calc(100% - 12px),
+    4px calc(100% - 16px),
+    4px calc(100% - 20px),
+    0px calc(100% - 20px)
+  );
+}
+
 .App-header {
   background-color: #282c34;
   min-height: 100vh;

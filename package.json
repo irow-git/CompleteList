@@ -1,8 +1,9 @@
 {
-  "name": "my-app",
+  "name": "complete-list",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@electron/remote": "^2.0.9",
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
     "@mui/icons-material": "^5.11.0",
@@ -17,9 +18,8 @@
     "antd": "^5.1.0",
     "concurrently": "^7.6.0",
     "cross-env": "^7.0.3",
-    "electron": "^22.0.0",
+    "electron-is-dev": "^2.0.0",
     "firebase": "^9.15.0",
-    "is-dev": "^0.1.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-redux": "^8.0.5",
@@ -30,6 +30,10 @@
     "typescript": "^4.9.4",
     "uuid": "^9.0.0",
     "web-vitals": "^2.1.4"
+  },
+  "devDependencies": {
+    "electron": "^22.0.0",
+    "electron-builder": "^23.6.0"
   },
   "main": "public/main.js",
   "homepage": "./",

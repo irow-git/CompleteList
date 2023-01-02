@@ -60,14 +60,17 @@ const Home: React.FC = () => {
     {
       dataIndex: "platform",
       title: "Platform",
+      width: 100
     },
     {
       dataIndex: "original_copy",
       title: "Original Copy",
+      width: 115
     },
     {
       dataIndex: "free",
       title: "Free to play",
+      width: 115
     },
     {
       dataIndex: "title",
