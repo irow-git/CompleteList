@@ -3,7 +3,6 @@ import { useSelector } from "react-redux";
 import { IGame } from "../interfaces";
 import { State } from "../store/reducers/rootReducer";
 import { Badge, Dropdown, Space, Table, TableColumnsType } from 'antd';
-import Button from "@mui/material/Button";
 
 const TableView: React.FC = () => {
 

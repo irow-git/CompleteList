@@ -1,6 +1,5 @@
 import { List, Space } from "antd";
 import { Layout, theme } from "antd";
-import { Box, ListItem } from "@mui/material";
 import { Link } from "react-router-dom";
 
 const { Header, Content, Sider } = Layout;
@@ -32,48 +31,75 @@ const Main: React.FC<MainProps> = ({ children }) => {
           <Space style={{ marginBottom: "50px", marginTop: "50px" }}>
             <img src="/logo.png" alt="logo" width="208px" draggable={false} />
           </Space>
-          <Box>
-            <Box
+
+          <div
+            style={{
+              display: "block",
+              textAlign: "left",
+              lineHeight: "40px",
+              paddingLeft: "5px",
+            }}
+          >
+            <div
               style={{
                 color: "white",
                 fontFamily: "joystix-monospace",
-
               }}
             >
-              <ListItem className="navItem"><Link to="create" style={{}}>Add Game</Link></ListItem>
-              <ListItem className="navItem"><Link to="create_many" style={{}}>Add Many Games</Link></ListItem>
-            </Box>
+              <div className="navItem">
+                <Link to="create" style={{}}>
+                  Add Game
+                </Link>
+              </div>
+              <div className="navItem">
+                <Link to="create_many" style={{}}>
+                  Add Many Games
+                </Link>
+              </div>
+            </div>
             <img
               src="/line-7.png"
               alt="line"
               width="105px"
               draggable={false}
               style={{
-                float: "left",
-                marginLeft: "2px",
-                marginBottom: "20px",
+                marginLeft: "-3px",
+                marginBottom: "5px",
                 marginTop: "20px",
               }}
             />
-            <Box
+            <div
               style={{
                 color: "white",
                 fontFamily: "joystix-monospace",
               }}
             >
-              <ListItem className="navItem"><Link to="/" style={{}}>Table View</Link></ListItem>
-              <ListItem className="navItem"><Link to="card" style={{}}>Card View</Link></ListItem>
-              <ListItem className="navItem"><Link to="letter" style={{}}>By Letter View</Link></ListItem>
-            </Box>
+              <div className="navItem">
+                <Link to="/" style={{}}>
+                  Table View
+                </Link>
+              </div>
+              <div className="navItem">
+                <Link to="card" style={{}}>
+                  Card View
+                </Link>
+              </div>
+              <div className="navItem">
+                <Link to="letter" style={{}}>
+                  By Letter View
+                </Link>
+              </div>
+            </div>
             <img
               src="/line-7.png"
               alt="line"
               width="105px"
               draggable={false}
-              style={{ float: "left", marginLeft: "2px", marginTop: "20px" }}
+              style={{ marginLeft: "-3px", marginTop: "20px" }}
             />
-          </Box>
+          </div>
         </List>
+
         <img
           src="/tear.png"
           alt="tear"
@@ -93,7 +119,7 @@ const Main: React.FC<MainProps> = ({ children }) => {
           Complete List - Video Games
         </Header>
         <Content style={{ margin: "16px" }}>
-          <Box
+          <div
             className="clip"
             style={{
               padding: 24,
@@ -102,7 +128,7 @@ const Main: React.FC<MainProps> = ({ children }) => {
             }}
           >
             {children}
-          </Box>
+          </div>
         </Content>
       </Layout>
     </Layout>
