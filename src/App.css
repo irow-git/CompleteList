@@ -22,48 +22,107 @@
   cursor: pointer;
 }
 
+a {
+  color: inherit; 
+  text-decoration: inherit; 
+}
+
+a:hover {
+  color: inherit;
+  text-decoration: inherit;
+}
+
 .clip {
   clip-path: polygon(
-    0px 20px,
-    4px 20px,
-    4px 12px,
-    8px 12px,
+    0px 42px,
+    6px 42px,
+    6px 30px,
+    12px 30px,
+    12px 18px,
+    18px 18px,
+    18px 12px,
+    24px 12px,
+    30px 12px,
+    30px 6px,
+    36px 6px,
+    42px 6px,
+    42px 0px,
+    calc(100% - 42px) 0px,
+    calc(100% - 42px) 6px,
+    calc(100% - 30px) 6px,
+    calc(100% - 30px) 12px,
+    calc(100% - 18px) 12px,
+    calc(100% - 18px) 18px,
+    calc(100% - 12px) 18px,
+    calc(100% - 12px) 24px,
+    calc(100% - 12px) 30px,
+    calc(100% - 6px) 30px,
+    calc(100% - 6px) 36px,
+    calc(100% - 6px) 42px,
+    100% 42px,
+    100% calc(100% - 42px),
+    calc(100% - 6px) calc(100% - 42px),
+    calc(100% - 6px) calc(100% - 30px),
+    calc(100% - 12px) calc(100% - 30px),
+    calc(100% - 12px) calc(100% - 18px),
+    calc(100% - 18px) calc(100% - 18px),
+    calc(100% - 18px) calc(100% - 12px),
+    calc(100% - 24px) calc(100% - 12px),
+    calc(100% - 30px) calc(100% - 12px),
+    calc(100% - 30px) calc(100% - 6px),
+    calc(100% - 36px) calc(100% - 6px),
+    calc(100% - 42px) calc(100% - 6px),
+    calc(100% - 42px) 100%,
+    42px 100%,
+    42px calc(100% - 6px),
+    30px calc(100% - 6px),
+    30px calc(100% - 12px),
+    18px calc(100% - 12px),
+    18px calc(100% - 18px),
+    12px calc(100% - 18px),
+    12px calc(100% - 24px),
+    12px calc(100% - 30px),
+    6px calc(100% - 30px),
+    6px calc(100% - 36px),
+    6px calc(100% - 42px),
+    0px calc(100% - 42px)
+  );
+}
+
+.form-clip {
+  clip-path: polygon(
+    0px 16px,
+    4px 16px,
+    4px 8px,
     8px 8px,
-    12px 8px,
+    8px 4px,
     12px 4px,
     16px 4px,
-    20px 4px,
-    20px 0px,
-    calc(100% - 20px) 0px,
-    calc(100% - 20px) 4px,
-    calc(100% - 12px) 4px,
-    calc(100% - 12px) 8px,
+    16px 0px,
+    calc(100% - 16px) 0px,
+    calc(100% - 16px) 4px,
+    calc(100% - 8px) 4px,
     calc(100% - 8px) 8px,
-    calc(100% - 8px) 12px,
+    calc(100% - 4px) 8px,
     calc(100% - 4px) 12px,
     calc(100% - 4px) 16px,
-    calc(100% - 4px) 20px,
-    100% 20px,
-    100% calc(100% - 20px),
-    calc(100% - 4px) calc(100% - 20px),
-    calc(100% - 4px) calc(100% - 12px),
-    calc(100% - 8px) calc(100% - 12px),
+    100% 16px,
+    100% calc(100% - 16px),
+    calc(100% - 4px) calc(100% - 16px),
+    calc(100% - 4px) calc(100% - 8px),
     calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 12px) calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 4px),
     calc(100% - 12px) calc(100% - 4px),
     calc(100% - 16px) calc(100% - 4px),
-    calc(100% - 20px) calc(100% - 4px),
-    calc(100% - 20px) 100%,
-    20px 100%,
-    20px calc(100% - 4px),
-    12px calc(100% - 4px),
-    12px calc(100% - 8px),
+    calc(100% - 16px) 100%,
+    16px 100%,
+    16px calc(100% - 4px),
+    8px calc(100% - 4px),
     8px calc(100% - 8px),
-    8px calc(100% - 12px),
+    4px calc(100% - 8px),
     4px calc(100% - 12px),
     4px calc(100% - 16px),
-    4px calc(100% - 20px),
-    0px calc(100% - 20px)
+    0px calc(100% - 16px)
   );
 }
 

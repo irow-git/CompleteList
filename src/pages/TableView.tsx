@@ -5,7 +5,7 @@ import { State } from "../store/reducers/rootReducer";
 import { Badge, Dropdown, Space, Table, TableColumnsType } from 'antd';
 import Button from "@mui/material/Button";
 
-const Home: React.FC = () => {
+const TableView: React.FC = () => {
 
   const gamesStore: IGame[] = useSelector(
     (state: State) => state.gameReducer.games
@@ -82,17 +82,6 @@ const Home: React.FC = () => {
     },
   ];
 
-  const dummyRows = [
-    {
-      key: 1,
-      platform: 'PC',
-      original_copy: true,
-      free: false,
-      title: "Doom Eternal",
-      completion: "Campaign",
-    }
-
-  ]
 
   console.log("GAMES: ", gamesStore);
 
@@ -100,13 +89,12 @@ const Home: React.FC = () => {
     <div>
       <Table
         columns={dataColumns}
-        pagination={{ pageSize: 25 }}
-        scroll={{ y: '71vh' }}
+        pagination={{ pageSize: 11 }}
         expandable={{ expandedRowRender }}
-        dataSource={dummyRows}
+        dataSource={gamesStore}
       />
     </div>
   );
 };
 
-export default Home;
+export default TableView;

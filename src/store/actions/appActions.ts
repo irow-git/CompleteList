@@ -1,13 +1,35 @@
-import { Dispatch } from "redux"
-import { State } from "../reducers/rootReducer"
-import * as ActionInterface from "./actionInterfaces"
+import { doc, updateDoc } from "firebase/firestore";
+import { Dispatch } from "redux";
+import { State } from "../reducers/rootReducer";
+import * as ActionInterface from "./actionInterfaces";
+import app from "../../firebaseConfig";
 
+const { v4: uuidv4 } = require("uuid");
+export const retrieveGames = (data: any) => {
+  return async (
+    dispatch: Dispatch<ActionInterface.RetrieveGamesAction>,
+    getState: () => State
+  ) => {
+    dispatch({
+      type: "RETRIEVE_GAMES",
+      payload: data,
+    });
+  };
+};
 
-export const retrieveItems = (data: any) => {
+export const addGame = (data: any) => {
+  return async (
+    dispatch: Dispatch<ActionInterface.AddGameAction>,
+    getState: () => State
+  ) => {
+    const docRef = doc(app, "main", "allGames");
+    await updateDoc(docRef, {
+      [uuidv4()]: data,
+    }).catch((error) => console.log(error));
 
-    return async (dispatch: Dispatch<ActionInterface.RetrieveGamesAction>, getState: () => State) => {
-        dispatch({
-            type: "RETRIEVE_GAMES", payload: data
-        })
-    }
-}
+    dispatch({
+      type: "ADD_GAME",
+      payload: data,
+    });
+  };
+};

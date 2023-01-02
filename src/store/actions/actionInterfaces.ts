@@ -20,7 +20,6 @@ export interface EditGameAction {
     payload: IGame
 }
 
-
 type AppAction = 
       RetrieveGamesAction
     | DeleteGameByIdAction

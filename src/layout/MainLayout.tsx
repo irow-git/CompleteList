@@ -1,6 +1,7 @@
 import { List, Space } from "antd";
 import { Layout, theme } from "antd";
 import { Box, ListItem } from "@mui/material";
+import { Link } from "react-router-dom";
 
 const { Header, Content, Sider } = Layout;
 
@@ -39,8 +40,8 @@ const Main: React.FC<MainProps> = ({ children }) => {
 
               }}
             >
-              <ListItem className="navItem">Add One</ListItem>
-              <ListItem className="navItem">Add Many</ListItem>
+              <ListItem className="navItem"><Link to="create" style={{}}>Add Game</Link></ListItem>
+              <ListItem className="navItem"><Link to="create_many" style={{}}>Add Many Games</Link></ListItem>
             </Box>
             <img
               src="/line-7.png"
@@ -60,9 +61,9 @@ const Main: React.FC<MainProps> = ({ children }) => {
                 fontFamily: "joystix-monospace",
               }}
             >
-              <ListItem className="navItem">Table View</ListItem>
-              <ListItem className="navItem">Card View</ListItem>
-              <ListItem className="navItem">Letter View</ListItem>
+              <ListItem className="navItem"><Link to="/" style={{}}>Table View</Link></ListItem>
+              <ListItem className="navItem"><Link to="card" style={{}}>Card View</Link></ListItem>
+              <ListItem className="navItem"><Link to="letter" style={{}}>By Letter View</Link></ListItem>
             </Box>
             <img
               src="/line-7.png"
