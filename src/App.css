@@ -2,34 +2,90 @@
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.navItem {
+.nav-item {
   font-size: 1.2em;
 }
 
-.navItem:hover {
+.nav-item:hover {
   color: cyan;
   cursor: pointer;
 }
 
 a {
-  color: inherit; 
-  text-decoration: inherit; 
+  color: inherit;
+  text-decoration: inherit;
 }
 
 a:hover {
   color: inherit;
   text-decoration: inherit;
+}
+
+.DLC-outer {
+  width: 992px;
+  align-items: start;
+}
+
+/*outer*/
+.DLC-top-border {
+  border-top: 8px solid;
+}
+
+/*middle*/
+.DLC-right-border {
+  border-right: 8px solid;
+  margin-right: -7px;
+}
+
+/*middle*/
+.DLC-left-border {
+  border-left: 8px solid;
+  margin-left: -7px;
+}
+
+/*inner*/
+.DLC-bottom-border {
+  border-bottom: 8px solid;
+  margin-bottom: -7px;
+  padding-inline: 8px;
+  padding-top: 8px;
+}
+
+.form-control-clip {
+  clip-path: polygon(
+    0px 16px,
+    4px 16px,
+    4px 8px,
+    8px 8px,
+    8px 4px,
+    12px 4px,
+    16px 4px,
+    16px 0px,
+    calc(100% - 16px) 0px,
+    calc(100% - 16px) 4px,
+    calc(100% - 8px) 4px,
+    calc(100% - 8px) 8px,
+    calc(100% - 4px) 8px,
+    calc(100% - 4px) 12px,
+    calc(100% - 4px) 16px,
+    100% 16px,
+    100% calc(100% - 16px),
+    calc(100% - 4px) calc(100% - 16px),
+    calc(100% - 4px) calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 4px),
+    calc(100% - 12px) calc(100% - 4px),
+    calc(100% - 16px) calc(100% - 4px),
+    calc(100% - 16px) 100%,
+    16px 100%,
+    16px calc(100% - 4px),
+    8px calc(100% - 4px),
+    8px calc(100% - 8px),
+    4px calc(100% - 8px),
+    4px calc(100% - 12px),
+    4px calc(100% - 16px),
+    0px calc(100% - 16px)
+  );
 }
 
 .clip {
@@ -89,63 +145,14 @@ a:hover {
   );
 }
 
-.form-clip {
-  clip-path: polygon(
-    0px 16px,
-    4px 16px,
-    4px 8px,
-    8px 8px,
-    8px 4px,
-    12px 4px,
-    16px 4px,
-    16px 0px,
-    calc(100% - 16px) 0px,
-    calc(100% - 16px) 4px,
-    calc(100% - 8px) 4px,
-    calc(100% - 8px) 8px,
-    calc(100% - 4px) 8px,
-    calc(100% - 4px) 12px,
-    calc(100% - 4px) 16px,
-    100% 16px,
-    100% calc(100% - 16px),
-    calc(100% - 4px) calc(100% - 16px),
-    calc(100% - 4px) calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 4px),
-    calc(100% - 12px) calc(100% - 4px),
-    calc(100% - 16px) calc(100% - 4px),
-    calc(100% - 16px) 100%,
-    16px 100%,
-    16px calc(100% - 4px),
-    8px calc(100% - 4px),
-    8px calc(100% - 8px),
-    4px calc(100% - 8px),
-    4px calc(100% - 12px),
-    4px calc(100% - 16px),
-    0px calc(100% - 16px)
-  );
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+@media only screen and (max-width: 1400px) {
+  .DLC-outer {
+    width: 760px;
   }
-  to {
-    transform: rotate(360deg);
+}
+
+@media only screen and (max-width: 1200px) {
+  .DLC-outer {
+    width: 100%;
   }
 }

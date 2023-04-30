@@ -10,14 +10,14 @@
     url("./fonts/Chava-Regular.ttf") format("truetype");
 }
 
-/* -------------------ANTD TABLE------------------- */
+/* -------------------ANTD CLASSES OVERRIDE------------------- */
 
 .ant-table table {
   font-family: "Chava-Regular";
   font-size: 1.2em;
 }
 
-thead[class*="ant-table-thead"] th{
+thead[class*="ant-table-thead"] th {
   text-align: center !important;
 }
 
@@ -25,12 +25,106 @@ thead[class*="ant-table-thead"] th{
   display: none;
 }
 
-/* ------------------------------------------------- */
+.ant-form-item-explain-error {
+  text-align: center;
+}
+
+.ant-input-status-error {
+  background-color: #efd7d1 !important;
+}
+
+.ant-form-item-required::before {
+  font-family: "joystix-monospace" !important;
+  font-size: large !important;
+}
+
+.ant-picker-month-btn {
+  font-family: "joystix-monospace";
+}
+
+.ant-picker-year-btn {
+  font-family: "joystix-monospace";
+}
+
+.ant-picker-panel-container {
+  border-top: 5px solid;
+  border-image: linear-gradient(to right, #ded7d1 40%,#c7c0bb 40%, #c7c0bb 85%, #d4d1cf 85%, #d4d1cf 100%) 2 stretch repeat;
+  transform: translate(23px, 0);
+}
+
+.ant-picker-panel-layout {
+  border-right: 5px solid;
+  border-bottom: 5px solid;
+  border-image: linear-gradient(to right, #ebe3dc 20%, #ded7d1 20%, #ded7d1 55%, #c7c0bb 55%, #c7c0bb 75%,#d4d1cf 75%,#d4d1cf 100%) 2 stretch repeat;
+}
+
+.ant-picker-date-panel {
+  border-left: 5px solid #ded7d1;
+}
+
+.ant-picker-footer {
+  border-left: 5px solid #ebe3dc;
+}
+
+.ant-picker-today-btn {
+  color: "white" !important;
+}
+
+.ant-picker > .ant-picker-input > input {
+  color: #000000e0;
+  font-family: "joystix-monospace";
+  margin-left: 10px;
+}
+
+.ant-picker-status-error {
+  background-color: #efd7d1 !important;
+} 
+
+.ant-picker-body {
+  margin-left: -6px;
+}
+
+.ant-picker-header-super-prev-btn {
+  color: white !important;
+}
+
+.ant-picker-header-prev-btn {
+  color: white !important;
+}
+
+.ant-picker-header-super-next-btn {
+  color: white !important;
+}
+
+.ant-picker-header-next-btn {
+  color: white !important;
+}
+
+.ant-picker-today-btn {
+  color: white !important;
+}
+
+/* ---------------------------------------------------------- */
 
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* unneeded */
+input,
+button,
+textarea,
+select {
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 code {

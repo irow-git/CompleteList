@@ -20,16 +20,21 @@ const Main: React.FC<MainProps> = ({ children }) => {
           background:
             "linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(114,108,120,0.9948354341736695) 100%)",
           color: "white",
-          height: "920px",
-          marginLeft: "16px",
+          height: 920,
+          marginLeft: 24,
         }}
         trigger={null}
-        width="240px"
+        width={240}
         collapsible
       >
         <List>
-          <Space style={{ marginBottom: "50px", marginTop: "50px" }}>
-            <img src="/logo.png" alt="logo" width="208px" draggable={false} />
+          <Space style={{ marginBottom: 50, marginTop: 40 }}>
+            <img
+              src="images/logo.png"
+              alt="logo"
+              width={208}
+              draggable={false}
+            />
           </Space>
 
           <div
@@ -37,88 +42,86 @@ const Main: React.FC<MainProps> = ({ children }) => {
               display: "block",
               textAlign: "left",
               lineHeight: "40px",
-              paddingLeft: "5px",
+              paddingLeft: 5,
             }}
           >
             <div
               style={{
                 color: "white",
-                fontFamily: "joystix-monospace",
               }}
             >
-              <div className="navItem">
+              <div className="nav-item">
                 <Link to="create" style={{}}>
                   Add Game
                 </Link>
               </div>
-              <div className="navItem">
+              <div className="nav-item">
                 <Link to="create_many" style={{}}>
                   Add Many Games
                 </Link>
               </div>
             </div>
             <img
-              src="/line-7.png"
+              src="images/line-7.png"
               alt="line"
-              width="105px"
+              width={105}
               draggable={false}
               style={{
-                marginLeft: "-3px",
-                marginBottom: "5px",
-                marginTop: "20px",
+                marginLeft: -3,
+                marginBottom: 5,
+                marginTop: 20,
               }}
             />
             <div
               style={{
                 color: "white",
-                fontFamily: "joystix-monospace",
               }}
             >
-              <div className="navItem">
+              <div className="nav-item">
                 <Link to="/" style={{}}>
                   Table View
                 </Link>
               </div>
-              <div className="navItem">
+              <div className="nav-item">
                 <Link to="card" style={{}}>
                   Card View
                 </Link>
               </div>
-              <div className="navItem">
+              <div className="nav-item">
                 <Link to="letter" style={{}}>
                   By Letter View
                 </Link>
               </div>
             </div>
             <img
-              src="/line-7.png"
+              src="images/line-7.png"
               alt="line"
-              width="105px"
+              width={105}
               draggable={false}
-              style={{ marginLeft: "-3px", marginTop: "20px" }}
+              style={{ marginLeft: -3, marginTop: 20 }}
             />
           </div>
         </List>
 
         <img
-          src="/tear.png"
+          src="images/tear.png"
           alt="tear"
           draggable={false}
-          style={{ position: "relative", marginTop: "40px" }}
+          style={{ position: "relative", marginTop: 42 }}
         />
       </Sider>
-      <Layout className="site-layout" style={{ backgroundColor: "#dedbd3" }}>
+      <Layout style={{ backgroundColor: "#dedbd3" }}>
         <Header
           style={{
             padding: 0,
             background: "transparent",
             fontSize: "2em",
-            marginBottom: "-16px",
+            marginBottom: -16,
           }}
         >
           Complete List - Video Games
         </Header>
-        <Content style={{ margin: "16px" }}>
+        <Content style={{ marginTop: 16, marginInline: 32 }}>
           <div
             className="clip"
             style={{
