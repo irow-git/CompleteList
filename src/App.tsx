@@ -9,7 +9,6 @@ import Main from "./layout/MainLayout";
 import TableView from "./pages/TableView";
 import { Routes, Route, HashRouter } from "react-router-dom";
 import AddGame from "./pages/AddGame";
-import AddManyGames from "./pages/AddManyGames";
 import CardView from "./pages/CardView";
 import LetterView from "./pages/LetterView";
 import { ConfigProvider } from "antd";
@@ -59,6 +58,15 @@ const App: React.FC = () => {
               controlPaddingHorizontal: 22,
               lineType: 'none'
             },
+            Select: {
+              colorBgContainer: '#ded7d1',
+              fontSizeLG: 18,
+              lineType: 'none',
+              controlItemBgHover: '#ded7d1',
+              controlItemBgActive: '#47434d',
+              controlHeight: 32,
+              controlPaddingHorizontal: 18
+            },
             DatePicker: {
               fontFamily: 'Chava-Regular',
               colorText: 'white',
@@ -68,7 +76,6 @@ const App: React.FC = () => {
               colorTextDisabled: '#8c8b8b',
               fontSizeLG: 18,
               lineType: 'none',
-              
             },
             Button: {
               colorBgContainer: '#47434d',
@@ -86,7 +93,6 @@ const App: React.FC = () => {
           <Main>
             <Routes>
               <Route path="create" element={<AddGame />} />
-              <Route path="create_many" element={<AddManyGames />} />
               <Route path="/" element={<TableView />} />
               <Route path="card" element={<CardView />} />
               <Route path="letter" element={<LetterView />} />

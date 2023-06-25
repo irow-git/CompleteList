@@ -1,17 +1,9 @@
-import {
-  Button,
-  Checkbox,
-  Col,
-  DatePicker,
-  Form,
-  Input,
-  Row,
-  Space,
-  Typography,
-} from "antd";
+import { Button, Checkbox, Col, DatePicker, Form, Input, Row, Space, Typography } from "antd";
 import { Content } from "antd/es/layout/layout";
-import * as Icons from "@ant-design/icons";
-import { useState } from "react";
+import { PlusOutlined } from "@ant-design/icons";
+import { useEffect, useState } from "react";
+import AppendableSelectDropdown from "../components/AppendableSelectDropdown";
+import { IGame } from "../interfaces";
 
 const AddGame: React.FC = () => {
   const onFinish = (values: any) => {
@@ -19,7 +11,7 @@ const AddGame: React.FC = () => {
     console.log("Received values of form:", values);
   };
 
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<IGame>();
   const [borderColorObj, setBorderColorObj] = useState<
     Array<{
       key: number;
@@ -33,9 +25,27 @@ const AddGame: React.FC = () => {
       colorsVertical: { right: Array<string>; left: Array<string> };
     }>
   >([]);
-  const [key, setKey] = useState<number>(0);
+  const [borderDLCKey, setBorderDLCKey] = useState<number>(0);
 
-  const addField = (add: () => void) => {
+  const [platformItems, setPlatformItems] = useState<Array<{ key: number; value: string }>>([
+    { key: 1, value: "PC" },
+    { key: 2, value: "Mobile" },
+  ]);
+
+  const [tagItems, setTagItems] = useState<Array<{ key: number; value: string }>>([
+    { key: 1, value: "Tough to beat" },
+    { key: 2, value: "Hardest Difficulty" },
+  ]);
+
+  useEffect(() => {
+    const localStoragePlatformItems = localStorage.getItem("platform-items");
+    const localStorageTagItems = localStorage.getItem("tag-items");
+
+    localStoragePlatformItems && setPlatformItems(JSON.parse(localStoragePlatformItems));
+    localStorageTagItems && setTagItems(JSON.parse(localStorageTagItems));
+  }, []);
+
+  const addDLCField = (add: () => void) => {
     const getRandomInt = (min: number, max: number) => {
       min = Math.ceil(min);
       max = Math.floor(max);
@@ -50,10 +60,7 @@ const AddGame: React.FC = () => {
         randomIndex = Math.floor(Math.random() * currentIndex);
         currentIndex--;
 
-        [array[currentIndex], array[randomIndex]] = [
-          array[randomIndex],
-          array[currentIndex],
-        ];
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
       }
 
       return array;
@@ -79,18 +86,12 @@ const AddGame: React.FC = () => {
 
     shuffleArr(colorArrHorizontal);
 
-    const colorsVerticalArrRight = [
-      colorArrHorizontal[0],
-      colorArrHorizontal[2],
-    ];
-    const colorsVerticalArrLeft = [
-      colorArrHorizontal[1],
-      colorArrHorizontal[3],
-    ];
+    const colorsVerticalArrRight = [colorArrHorizontal[0], colorArrHorizontal[2]];
+    const colorsVerticalArrLeft = [colorArrHorizontal[1], colorArrHorizontal[3]];
 
     setBorderColorObj((prevState) => {
       prevState.push({
-        key,
+        key: borderDLCKey,
         value: {
           firstColorPercent,
           secondColorPercent,
@@ -106,18 +107,14 @@ const AddGame: React.FC = () => {
       return prevState;
     });
 
-    setKey((prevState) => {
+    setBorderDLCKey((prevState) => {
       return (prevState += 1);
     });
 
     add();
   };
 
-  const removeField = (
-    remove: (name: number) => void,
-    name: number,
-    key: number
-  ) => {
+  const removeDLCField = (remove: (name: number) => void, name: number, key: number) => {
     remove(name);
 
     setBorderColorObj((prevState) => {
@@ -129,13 +126,7 @@ const AddGame: React.FC = () => {
 
   return (
     <Content style={{ padding: "20px", textAlign: "start" }}>
-      <Form
-        form={form}
-        layout="vertical"
-        name="dynamic_form_nest_item"
-        onFinish={onFinish}
-        autoComplete="off"
-      >
+      <Form form={form} layout="vertical" name="dynamic_form_nest_item" onFinish={onFinish} autoComplete="off">
         <Row gutter={[24, 12]}>
           <Col xl={12} sm={24}>
             <Form.Item
@@ -148,11 +139,7 @@ const AddGame: React.FC = () => {
                 },
               ]}
             >
-              <Input
-                className="form-control-clip"
-                size="large"
-                placeholder="Enter Title"
-              />
+              <Input className="form-control-clip-large" maxLength={200} size="large" placeholder="Enter Title" />
             </Form.Item>
           </Col>
           <Col xl={12} sm={24}>
@@ -166,11 +153,7 @@ const AddGame: React.FC = () => {
                 },
               ]}
             >
-              <Input
-                className="form-control-clip"
-                size="large"
-                placeholder="Enter Completion"
-              />
+              <Input className="form-control-clip-large" maxLength={200} size="large" placeholder="Enter Completion" />
             </Form.Item>
           </Col>
           <Col xl={12} sm={24}>
@@ -186,7 +169,7 @@ const AddGame: React.FC = () => {
             >
               <DatePicker
                 suffixIcon={false}
-                className="form-control-clip"
+                className="form-control-clip-large"
                 style={{ width: "100%", fontFamily: "joystix-monospace" }}
                 size="large"
                 placeholder="Enter Release Date"
@@ -206,26 +189,77 @@ const AddGame: React.FC = () => {
             >
               <DatePicker
                 suffixIcon={false}
-                className="form-control-clip"
+                className="form-control-clip-large"
                 style={{ width: "100%" }}
                 size="large"
                 placeholder="Enter Date of Last Completion"
               />
             </Form.Item>
           </Col>
-          <Col span={24}>
+          <Col xl={12} sm={24}>
+            <Form.Item
+              name="platform"
+              label="Platform"
+              rules={[
+                {
+                  required: true,
+                  message: "Platform required",
+                },
+              ]}
+            >
+              <AppendableSelectDropdown
+                localStorageKey="platform-items"
+                selectItems={platformItems}
+                setSelectItems={setPlatformItems}
+                placeholder="Choose a Platform"
+              />
+            </Form.Item>
+          </Col>
+          <Col xl={12} sm={24} style={{ marginBottom: "-24px" }}>
+            <Form.Item name="tags" label="Tags">
+              <AppendableSelectDropdown
+                localStorageKey="tag-items"
+                selectItems={tagItems}
+                setSelectItems={setTagItems}
+                placeholder="Select Tags"
+                multiple={true}
+                nullable={true}
+              />
+            </Form.Item>
+          </Col>
+          <Col xl={12} sm={24}>
             <Row>
               <Col span={24} style={{ marginBottom: "-24px" }}>
+                <Typography.Text style={{ position: "absolute", transform: "translate(25px, 5px)" }}>Original Copy</Typography.Text>
                 <Form.Item name="original_copy" valuePropName="checked">
-                  <Checkbox>Original Copy</Checkbox>
+                  <Checkbox />
+                </Form.Item>
+              </Col>
+              <Col span={24} style={{ marginBottom: "-24px" }}>
+                <Typography.Text style={{ position: "absolute", transform: "translate(25px, 5px)" }}>Free to Play</Typography.Text>
+                <Form.Item name="free_to_play" valuePropName="checked">
+                  <Checkbox />
                 </Form.Item>
               </Col>
               <Col span={24}>
-                <Form.Item name="free_to_play" valuePropName="checked">
-                  <Checkbox>Free to Play</Checkbox>
+                <Typography.Text style={{ position: "absolute", transform: "translate(25px, 5px)" }}>Service</Typography.Text>
+                <Form.Item name="service" valuePropName="checked">
+                  <Checkbox
+                    onClick={(e) => {
+                      const target = e.target as HTMLInputElement;
+                      if (target.checked) {
+                        form.setFieldValue("original_copy", true);
+                      }
+                    }}
+                  />
                 </Form.Item>
               </Col>
             </Row>
+          </Col>
+          <Col xl={12} sm={24}>
+            <Form.Item label="Comment" name="comment">
+              <Input.TextArea rows={3} maxLength={300} style={{ resize: "none" }} className="form-control-clip-large" />
+            </Form.Item>
           </Col>
         </Row>
 
@@ -297,11 +331,7 @@ const AddGame: React.FC = () => {
                                     },
                                   ]}
                                 >
-                                  <Input
-                                    className="form-control-clip"
-                                    size="large"
-                                    placeholder="Title"
-                                  />
+                                  <Input className="form-control-clip-large" maxLength={200} size="large" placeholder="Title" />
                                 </Form.Item>
                               </Col>
 
@@ -316,11 +346,7 @@ const AddGame: React.FC = () => {
                                     },
                                   ]}
                                 >
-                                  <Input
-                                    className="form-control-clip"
-                                    size="large"
-                                    placeholder="Completion"
-                                  />
+                                  <Input className="form-control-clip-large" maxLength={200} size="large" placeholder="Completion" />
                                 </Form.Item>
                               </Col>
 
@@ -336,7 +362,7 @@ const AddGame: React.FC = () => {
                                 >
                                   <DatePicker
                                     suffixIcon={false}
-                                    className="form-control-clip"
+                                    className="form-control-clip-large"
                                     style={{
                                       width: "100%",
                                       fontFamily: "joystix-monospace",
@@ -359,7 +385,7 @@ const AddGame: React.FC = () => {
                                 >
                                   <DatePicker
                                     suffixIcon={false}
-                                    className="form-control-clip"
+                                    className="form-control-clip-large"
                                     style={{ width: "100%" }}
                                     size="large"
                                     placeholder="Date of Last Completion"
@@ -372,8 +398,12 @@ const AddGame: React.FC = () => {
                       </Space>
                     </Space>
                     <img
-                      style={{ marginTop: 20, marginLeft: 10, cursor: "pointer" }}
-                      onClick={() => removeField(remove, name, key)}
+                      style={{
+                        marginTop: 20,
+                        marginLeft: 10,
+                        cursor: "pointer",
+                      }}
+                      onClick={() => removeDLCField(remove, name, key)}
                       width={40}
                       src="images/close.png"
                       alt="close"
@@ -383,11 +413,11 @@ const AddGame: React.FC = () => {
               })}
               <Form.Item style={{ marginTop: 12 }}>
                 <Button
-                  className="form-control-clip"
+                  className="form-control-clip-large"
                   size="large"
                   style={{ width: 200, fontFamily: "inherit" }}
-                  onClick={() => addField(add)}
-                  icon={<Icons.PlusOutlined />}
+                  onClick={() => addDLCField(add)}
+                  icon={<PlusOutlined />}
                 >
                   Add field
                 </Button>
@@ -397,12 +427,7 @@ const AddGame: React.FC = () => {
         </Form.List>
 
         <Form.Item style={{ marginTop: -20 }}>
-          <Button
-            className="form-control-clip"
-            size="large"
-            style={{ width: 200, fontFamily: "inherit" }}
-            htmlType="submit"
-          >
+          <Button className="form-control-clip-large" size="large" style={{ width: 200, fontFamily: "inherit" }} htmlType="submit">
             Submit
           </Button>
         </Form.Item>

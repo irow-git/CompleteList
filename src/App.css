@@ -51,7 +51,7 @@ a:hover {
   padding-top: 8px;
 }
 
-.form-control-clip {
+.form-control-clip-large {
   clip-path: polygon(
     0px 16px,
     4px 16px,
@@ -85,6 +85,49 @@ a:hover {
     4px calc(100% - 12px),
     4px calc(100% - 16px),
     0px calc(100% - 16px)
+  );
+  box-shadow: 10px 5px 5px red;
+}
+
+.form-control-clip {
+  clip-path: polygon(
+    0px calc(100% - 10px),
+    5px calc(100% - 10px),
+    5px calc(100% - 5px),
+    10px calc(100% - 5px),
+    10px 100%,
+    calc(100% - 10px) 100%,
+    calc(100% - 10px) calc(100% - 5px),
+    calc(100% - 5px) calc(100% - 5px),
+    calc(100% - 5px) calc(100% - 10px),
+    100% calc(100% - 10px),
+    100% 10px,
+    calc(100% - 5px) 10px,
+    calc(100% - 5px) 5px,
+    calc(100% - 10px) 5px,
+    calc(100% - 10px) 0px,
+    10px 0px,
+    10px 5px,
+    5px 5px,
+    5px 10px,
+    0px 10px
+  );
+}
+
+.form-control-clip-small {
+  clip-path: polygon(
+    0px calc(100% - 4px),
+    4px calc(100% - 4px),
+    4px 100%,
+    calc(100% - 4px) 100%,
+    calc(100% - 4px) calc(100% - 4px),
+    100% calc(100% - 4px),
+    100% 4px,
+    calc(100% - 4px) 4px,
+    calc(100% - 4px) 0px,
+    4px 0px,
+    4px 4px,
+    0px 4px
   );
 }
 

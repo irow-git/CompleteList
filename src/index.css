@@ -48,14 +48,32 @@ thead[class*="ant-table-thead"] th {
 
 .ant-picker-panel-container {
   border-top: 5px solid;
-  border-image: linear-gradient(to right, #ded7d1 40%,#c7c0bb 40%, #c7c0bb 85%, #d4d1cf 85%, #d4d1cf 100%) 2 stretch repeat;
+  border-image: linear-gradient(
+      to right,
+      #ded7d1 40%,
+      #c7c0bb 40%,
+      #c7c0bb 85%,
+      #d4d1cf 85%,
+      #d4d1cf 100%
+    )
+    2 stretch repeat;
   transform: translate(23px, 0);
 }
 
 .ant-picker-panel-layout {
   border-right: 5px solid;
   border-bottom: 5px solid;
-  border-image: linear-gradient(to right, #ebe3dc 20%, #ded7d1 20%, #ded7d1 55%, #c7c0bb 55%, #c7c0bb 75%,#d4d1cf 75%,#d4d1cf 100%) 2 stretch repeat;
+  border-image: linear-gradient(
+      to right,
+      #ebe3dc 20%,
+      #ded7d1 20%,
+      #ded7d1 55%,
+      #c7c0bb 55%,
+      #c7c0bb 75%,
+      #d4d1cf 75%,
+      #d4d1cf 100%
+    )
+    2 stretch repeat;
 }
 
 .ant-picker-date-panel {
@@ -73,12 +91,24 @@ thead[class*="ant-table-thead"] th {
 .ant-picker > .ant-picker-input > input {
   color: #000000e0;
   font-family: "joystix-monospace";
-  margin-left: 10px;
+  padding-inline: 10px;
 }
 
 .ant-picker-status-error {
   background-color: #efd7d1 !important;
-} 
+}
+
+.ant-select-selection-placeholder {
+  padding-inline: 10px !important; 
+}
+
+.ant-select-selection-item {
+  padding-inline: 10px !important;
+}
+
+.ant-select-status-error > .ant-select-selector {
+  background-color: #efd7d1 !important;
+}
 
 .ant-picker-body {
   margin-left: -6px;
@@ -104,27 +134,89 @@ thead[class*="ant-table-thead"] th {
   color: white !important;
 }
 
+.ant-select-dropdown {
+  clip-path: polygon(
+    0px 16px,
+    4px 16px,
+    4px 8px,
+    8px 8px,
+    8px 4px,
+    12px 4px,
+    16px 4px,
+    16px 0px,
+    calc(100% - 16px) 0px,
+    calc(100% - 16px) 4px,
+    calc(100% - 8px) 4px,
+    calc(100% - 8px) 8px,
+    calc(100% - 4px) 8px,
+    calc(100% - 4px) 12px,
+    calc(100% - 4px) 16px,
+    100% 16px,
+    100% calc(100% - 16px),
+    calc(100% - 4px) calc(100% - 16px),
+    calc(100% - 4px) calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 4px),
+    calc(100% - 12px) calc(100% - 4px),
+    calc(100% - 16px) calc(100% - 4px),
+    calc(100% - 16px) 100%,
+    16px 100%,
+    16px calc(100% - 4px),
+    8px calc(100% - 4px),
+    8px calc(100% - 8px),
+    4px calc(100% - 8px),
+    4px calc(100% - 12px),
+    4px calc(100% - 16px),
+    0px calc(100% - 16px)
+  );
+  padding-top: 22px;
+  padding-bottom: 6px;
+  background-color: #f4f4f4;
+}
+
+.ant-select-item-option {
+  clip-path: polygon(
+    0px calc(100% - 6px),
+    6px calc(100% - 6px),
+    6px 100%,
+    calc(100% - 6px) 100%,
+    calc(100% - 6px) calc(100% - 6px),
+    100% calc(100% - 6px),
+    100% 6px,
+    calc(100% - 6px) 6px,
+    calc(100% - 6px) 0px,
+    6px 0px,
+    6px 6px,
+    0px 6px
+  );
+}
+
+.ant-select-item-option-selected > .ant-select-item-option-content {
+  color: white;
+}
+
+.ant-select-item-option-selected > .ant-select-item-option-content > button {
+  background-color: white !important;
+}
+
+.ant-select-item-option-selected > .ant-select-item-option-content > button > span {
+  color: darkred !important;
+}
+
+.ant-select-item-option-selected > .ant-select-item-option-content > button > span:hover {
+  color: red !important;
+}
+
+.ant-form-item-control-input-content {
+  filter: drop-shadow(0px 1px 1px black);
+}
+
 /* ---------------------------------------------------------- */
 
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* unneeded */
-input,
-button,
-textarea,
-select {
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 0;
-  outline: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
 }
 
 code {
