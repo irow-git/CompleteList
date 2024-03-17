@@ -106,6 +106,10 @@ thead[class*="ant-table-thead"] th {
   padding-inline: 10px !important;
 }
 
+.ant-select-selector {
+  padding-inline: 10px !important;
+}
+
 .ant-select-status-error > .ant-select-selector {
   background-color: #efd7d1 !important;
 }
@@ -209,6 +213,24 @@ thead[class*="ant-table-thead"] th {
 
 .ant-form-item-control-input-content {
   filter: drop-shadow(0px 1px 1px black);
+}
+
+.ant-form-item-control-input-content > textarea {
+  padding-inline: 22px;
+}
+
+.ant-select-selection-overflow-item > .ant-select-selection-item {
+  border: none !important;
+  background-color: transparent !important;
+}
+
+.ant-select-selection-overflow-item:not(:first-of-type) > .ant-select-selection-item {
+  border-left: 3px solid #d1cac5 !important;
+}
+
+
+.ant-select-selection-search > input {
+  font-size: 18px;
 }
 
 /* ---------------------------------------------------------- */

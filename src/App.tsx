@@ -75,7 +75,7 @@ const App: React.FC = () => {
               colorTextHeading: 'white',
               colorTextDisabled: '#8c8b8b',
               fontSizeLG: 18,
-              lineType: 'none',
+              lineType: 'none'
             },
             Button: {
               colorBgContainer: '#47434d',
@@ -87,7 +87,7 @@ const App: React.FC = () => {
               colorBgContainer: '#ded7d1',
               colorPrimary: '#000000e0',
               colorPrimaryHover: '#0000008a',
-            },
+            }
           }
         }}>
           <Main>

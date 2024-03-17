@@ -1,22 +1,31 @@
-import { Button, Divider, Input, InputRef, Select, Space } from "antd";
+import { Button, Divider, Form, FormInstance, FormItemProps, Input, InputRef, Select, SelectProps, Space } from "antd";
+import { SizeType } from "antd/es/config-provider/SizeContext";
 import { useRef, useState } from "react";
+import { IGame } from "../interfaces";
 
 const AppendableSelectDropdown: React.FC<{
+  form: FormInstance<IGame>;
+  formItemProps: FormItemProps;
   localStorageKey: string;
   selectItems: Array<{ key: number; value: string }>;
   setSelectItems: React.Dispatch<React.SetStateAction<Array<{ key: number; value: string }>>>;
   placeholder?: string;
   multiple?: boolean;
   nullable?: boolean;
-}> = ({ localStorageKey, selectItems, setSelectItems, placeholder, multiple = false, nullable = false }) => {
+}> = ({ form, formItemProps, localStorageKey, selectItems, setSelectItems, placeholder, multiple = false, nullable = false }) => {
 
   const [newSelectItem, setNewSelectItem] = useState("");
   const newSelectItemInputRef = useRef<InputRef>(null);
+
 
   const { Option } = Select;
 
   const selectNewItemOnChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setNewSelectItem(event.target.value.toLocaleUpperCase());
+
+    setTimeout(() => {
+      newSelectItemInputRef.current?.focus();
+    }, 0);
   };
 
   const addSelectItem = (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
@@ -45,6 +54,24 @@ const AppendableSelectDropdown: React.FC<{
   };
 
   const removeSelectItem = (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>, key: number) => {
+    
+    const selectValues: string | string[] = form.getFieldValue(formItemProps.name!);
+    
+    const itemToRemove = selectItems.filter((item) => item.key === key)[0];
+        
+    if(typeof(selectValues) === "string") {
+      if(itemToRemove.value === selectValues) {
+        form.setFieldValue(formItemProps.name!, undefined);
+      }
+    }
+    else {
+      if(selectValues.includes(itemToRemove.value)) {
+        const indexToRemove = selectValues.findIndex((item) => item === itemToRemove.value);
+        selectValues.splice(indexToRemove, 1);
+        form.setFieldValue(formItemProps.name!, selectValues);
+      }
+    }
+    
     setSelectItems((prevState) => {
       const indexToRemove = prevState.findIndex((item) => item.key === key);
       prevState.splice(indexToRemove, 1);
@@ -83,7 +110,22 @@ const AppendableSelectDropdown: React.FC<{
     </Option>
   ));
 
-  const DropdownMenu: React.FC<{ menu: React.ReactElement<any, string | React.JSXElementConstructor<any>>; ref: any }> = ({ menu, ref }) => {
+  const selectProps: SelectProps = {
+    className: "form-control-clip-large",
+    size: "large" as SizeType,
+    placeholder: placeholder,
+    optionLabelProp: "label",
+    showSearch: false,
+    maxTagCount: "responsive" as number | "responsive" | undefined,
+    allowClear: nullable,
+    dropdownRender: (menu: React.ReactElement<any, string | React.JSXElementConstructor<any>>) => <DropdownMenu menu={menu} menuRef={newSelectItemInputRef} />,
+  };
+
+  if(multiple) {
+    selectProps["mode"] = "multiple"
+  }
+
+  const DropdownMenu: React.FC<{ menu: React.ReactElement<any, string | React.JSXElementConstructor<any>>; menuRef: any }> = ({ menu, menuRef }) => {
     return (
       <>
         {menu}
@@ -98,7 +140,7 @@ const AppendableSelectDropdown: React.FC<{
             style={{ paddingInline: 18 }}
             placeholder="Enter new item"
             maxLength={50}
-            ref={ref}
+            ref={menuRef}
             value={newSelectItem}
             onChange={selectNewItemOnChange}
           />
@@ -110,29 +152,12 @@ const AppendableSelectDropdown: React.FC<{
     );
   };
 
-  return multiple ? (
-    <Select
-      className="form-control-clip-large"
-      size="large"
-      placeholder={placeholder}
-      optionLabelProp="label"
-      mode="multiple"
-      allowClear={nullable}
-      dropdownRender={(menu) => <DropdownMenu menu={menu} ref={newSelectItemInputRef} />}
-    >
-      {selectOptions}
-    </Select>
-  ) : (
-    <Select
-      className="form-control-clip-large"
-      size="large"
-      placeholder={placeholder}
-      optionLabelProp="label"
-      allowClear={nullable}
-      dropdownRender={(menu) => <DropdownMenu menu={menu} ref={newSelectItemInputRef} />}
-    >
-      {selectOptions}
-    </Select>
+  return (
+    <Form.Item {...formItemProps}>
+      <Select {...selectProps}>
+        {selectOptions}
+      </Select>
+    </Form.Item>
   );
 };
 
