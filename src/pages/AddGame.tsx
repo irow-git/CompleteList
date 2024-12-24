@@ -8,7 +8,6 @@ import { DynamicColorBorder } from "../components/DynamicColorBorder";
 
 const AddGame: React.FC = () => {
   const onFinish = (values: any) => {
-    console.log(form.getFieldsError());
     console.log("Received values of form:", values);
   };
 
@@ -114,18 +113,18 @@ const AddGame: React.FC = () => {
 
         <Form.List name="DLCs">
           {(fields, { add, remove }) => (
-            <Space direction="vertical">
+            <div style={{width: '100%'}}>
               <Space style={{ marginLeft: 10, marginBottom: -12 }}>
                 <Typography.Title level={4}>DLC List</Typography.Title>
               </Space>
               {fields.map(({ key, name }) => {
                 const styling = borderColorObj[name];
                 return (
-                  <Space key={key} className="DLC-outer">
+                  <div key={key} className="DLC-outer">
                     <DynamicColorBorder styling={styling}>
-                      <div style={{padding: 10, display: 'flex'}}>
+                      <div style={{paddingBlock: 20, paddingInline: 30, display: 'flex'}}>
                         <GameForm form={form} innerForm={{ name }} />
-                        <div style={{position: 'relative', width: 0, height: 0, top: -10, right: 72}}>
+                        <div style={{position: 'relative', width: 0, height: 0, top: -20, right: 40}}>
                           <Button
                             className="form-control-clip-small"
                             size="small"
@@ -141,10 +140,10 @@ const AddGame: React.FC = () => {
                         </div>
                       </div>
                     </DynamicColorBorder>
-                  </Space>
+                  </div>
                 );
               })}
-              <Form.Item style={{ marginTop: 12 }}>
+              <Form.Item style={{ marginTop: 22 }}>
                 <Button
                   className="form-control-clip-large"
                   size="large"
@@ -155,7 +154,7 @@ const AddGame: React.FC = () => {
                   Add field
                 </Button>
               </Form.Item>
-            </Space>
+            </div>
           )}
         </Form.List>
 

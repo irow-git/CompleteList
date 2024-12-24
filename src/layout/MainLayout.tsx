@@ -101,7 +101,7 @@ const Main: React.FC<MainProps> = ({ children }) => {
         >
           Complete List - Video Games
         </Header>
-        <Content style={{ marginTop: 16, marginInline: 32, filter: "drop-shadow(1px 2px 3px black)" }}>
+        <Content style={{ marginTop: 16, marginBottom: 24, marginInline: 32, filter: "drop-shadow(1px 2px 3px black)" }}>
           <div
             className="clip"
             style={{

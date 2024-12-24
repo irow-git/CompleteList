@@ -3,8 +3,7 @@ import AppendableSelectDropdown from "./AppendableSelectDropdown";
 import { IGame } from "../interfaces";
 import { useEffect, useState } from "react";
 
-export const GameForm: React.FC<{ form: FormInstance<IGame>, innerForm?: { name: number } }> = ({ form, innerForm = null }) => {
-
+export const GameForm: React.FC<{ form: FormInstance<IGame>; innerForm?: { name: number } }> = ({ form, innerForm = null }) => {
   const [platformItems, setPlatformItems] = useState<Array<{ key: number; value: string }>>([
     { key: 1, value: "PC" },
     { key: 2, value: "Mobile" },
@@ -24,7 +23,7 @@ export const GameForm: React.FC<{ form: FormInstance<IGame>, innerForm?: { name:
   }, []);
 
   return (
-    <Row gutter={[24, 12]}>
+    <Row gutter={[24, 24]} style={{width: '100%'}}>
       <Col xl={12} sm={24}>
         <Form.Item
           name={innerForm ? [innerForm.name, "title"] : "title"}
@@ -94,35 +93,35 @@ export const GameForm: React.FC<{ form: FormInstance<IGame>, innerForm?: { name:
         </Form.Item>
       </Col>
       <Col xl={12} sm={24}>
-          <AppendableSelectDropdown
-            form={form}
-            formItemProps={{
-              name: innerForm ? [innerForm.name, "platform"] : "platform",
-              label: "Platform",
-              valuePropName: "value",
-              rules: [{required: true, message: "Platform required"}]
-            }}
-            localStorageKey="platform-items"
-            selectItems={platformItems}
-            setSelectItems={setPlatformItems}
-            placeholder="Choose a Platform"
-            
-          />
+        <AppendableSelectDropdown
+          form={form}
+          formItemProps={{
+            name: innerForm ? [innerForm.name, "platform"] : "platform",
+            label: "Platform",
+            valuePropName: "value",
+            rules: [{ required: true, message: "Platform required" }],
+          }}
+          localStorageKey="platform-items"
+          selectItems={platformItems}
+          setSelectItems={setPlatformItems}
+          placeholder="Choose a Platform"
+          multiple={true}
+        />
       </Col>
       <Col xl={12} sm={24} style={{ marginBottom: "-24px" }}>
         <AppendableSelectDropdown
-            form={form}
-            formItemProps={{
-              name: innerForm ? [innerForm.name, "tags"] : "tags",
-              label: "Tags"
-            }}
-            localStorageKey="tag-items"
-            selectItems={tagItems}
-            setSelectItems={setTagItems}
-            placeholder="Select Tags"
-            multiple={true}
-            nullable={true}
-          />
+          form={form}
+          formItemProps={{
+            name: innerForm ? [innerForm.name, "tags"] : "tags",
+            label: "Tags",
+          }}
+          localStorageKey="tag-items"
+          selectItems={tagItems}
+          setSelectItems={setTagItems}
+          placeholder="Select Tags"
+          multiple={true}
+          nullable={true}
+        />
       </Col>
       <Col xl={12} sm={24}>
         <Row>
@@ -145,8 +144,8 @@ export const GameForm: React.FC<{ form: FormInstance<IGame>, innerForm?: { name:
                 onClick={(e) => {
                   const target = e.target as HTMLInputElement;
                   if (target.checked) {
-                    if(innerForm) {
-                      form.setFieldValue([innerForm.name, "orginal_copy"], true)
+                    if (innerForm) {
+                      form.setFieldValue([innerForm.name, "orginal_copy"], true);
                       return;
                     }
                     form.setFieldValue("original_copy", true);
@@ -159,7 +158,7 @@ export const GameForm: React.FC<{ form: FormInstance<IGame>, innerForm?: { name:
       </Col>
       <Col xl={12} sm={24}>
         <Form.Item name={innerForm ? [innerForm.name, "comment"] : "comment"} label="Comment">
-          <Input.TextArea rows={3} maxLength={300} style={{ resize: "none" }} className="form-control-clip-large" />
+          <Input.TextArea rows={3} maxLength={300} style={{ resize: "none", overflow: "hidden" }} className="form-control-clip-large" />
         </Form.Item>
       </Col>
     </Row>

@@ -34,21 +34,20 @@ a:hover {
 /*middle*/
 .DLC-right-border {
   border-right: 11px solid;
-  margin-right: -11px;
+  margin-right: -22px;
 }
 
 /*middle*/
 .DLC-left-border {
   border-left: 11px solid;
-  margin-left: -11px;
+  margin-left: -22px;
+  padding-top: 11px;
 }
 
 /*inner*/
 .DLC-bottom-border {
   border-bottom: 11px solid;
-  margin-bottom: -11px;
   padding-inline: 11px;
-  padding-top: 11px;
 }
 
 .form-control-clip-large {
