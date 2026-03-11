@@ -3,8 +3,7 @@ import { Dispatch } from "redux";
 import { State } from "../reducers/rootReducer";
 import * as ActionInterface from "./actionInterfaces";
 import app from "../../firebaseConfig";
-
-const { v4: uuidv4 } = require("uuid");
+import { v4 as uuidv4 } from "uuid";
 export const retrieveGames = (data: any) => {
   return async (
     dispatch: Dispatch<ActionInterface.RetrieveGamesAction>,

@@ -53,25 +53,25 @@ const AppendableSelectDropdown: React.FC<{
     localStorage.setItem(localStorageKey, JSON.stringify(storageArr));
   };
 
-  const removeSelectItem = (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>, key: number) => {
-    
+  const removeSelectItem = (e: React.MouseEvent<HTMLElement>, key: number) => {
+
     const selectValues: string | string[] = form.getFieldValue(formItemProps.name!);
-    
+
     const itemToRemove = selectItems.filter((item) => item.key === key)[0];
-        
-    if(typeof(selectValues) === "string") {
-      if(itemToRemove.value === selectValues) {
+
+    if (typeof (selectValues) === "string") {
+      if (itemToRemove.value === selectValues) {
         form.setFieldValue(formItemProps.name!, undefined);
       }
     }
     else {
-      if(selectValues.includes(itemToRemove.value)) {
+      if (selectValues.includes(itemToRemove.value)) {
         const indexToRemove = selectValues.findIndex((item) => item === itemToRemove.value);
         selectValues.splice(indexToRemove, 1);
         form.setFieldValue(formItemProps.name!, selectValues);
       }
     }
-    
+
     setSelectItems((prevState) => {
       const indexToRemove = prevState.findIndex((item) => item.key === key);
       prevState.splice(indexToRemove, 1);
@@ -121,7 +121,7 @@ const AppendableSelectDropdown: React.FC<{
     dropdownRender: (menu: React.ReactElement<any, string | React.JSXElementConstructor<any>>) => <DropdownMenu menu={menu} menuRef={newSelectItemInputRef} />,
   };
 
-  if(multiple) {
+  if (multiple) {
     selectProps["mode"] = "multiple"
   }
 
