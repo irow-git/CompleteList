@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore"
 
-const firebaseConfig = import.meta.env.FIREBASE_CONFIG;
+const rawConfig = import.meta.env.VITE_FIREBASE_CONFIG
+const jsonConfig = JSON.parse(rawConfig)
 
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(jsonConfig);
 export default getFirestore();

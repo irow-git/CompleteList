@@ -1,15 +1,61 @@
-import { Checkbox, Col, DatePicker, Form, FormInstance, Input, Row, Typography } from "antd";
-import AppendableSelectDropdown from "./AppendableSelectDropdown";
-import { IGame } from "../interfaces";
+import { Controller, FieldError, FieldPath, get, useFormContext } from "react-hook-form";
+import AppendableSelectDropdown, { SelectItem } from "./AppendableSelectDropdown";
+import { FormItem } from "./FormItem";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
 
-export const GameForm: React.FC<{ form: FormInstance<IGame>; innerForm?: { name: number } }> = ({ form, innerForm = null }) => {
-  const [platformItems, setPlatformItems] = useState<Array<{ key: number; value: string }>>([
+export type GameFormValues = {
+  title: string;
+  completion: string;
+  release_date?: Date;
+  last_completion?: Date;
+  platform: string[];
+  tags: string[];
+  original_copy: boolean;
+  free_to_play: boolean;
+  service: boolean;
+  comment: string;
+};
+
+export type AddGameFormValues = GameFormValues & { DLCs: GameFormValues[] };
+
+export const emptyGameFormValues: GameFormValues = {
+  title: "",
+  completion: "",
+  release_date: undefined,
+  last_completion: undefined,
+  platform: [],
+  tags: [],
+  original_copy: false,
+  free_to_play: false,
+  service: false,
+  comment: "",
+};
+
+const checkboxFields = [
+  { field: "original_copy", label: "Original Copy" },
+  { field: "free_to_play", label: "Free to Play" },
+  { field: "service", label: "Service" },
+] as const;
+
+// prefix is set when the form is rendered for a DLC, e.g. "DLCs.0"
+export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) => {
+  const {
+    control,
+    register,
+    setValue,
+    formState: { errors },
+  } = useFormContext<AddGameFormValues>();
+
+  const [platformItems, setPlatformItems] = useState<Array<SelectItem>>([
     { key: 1, value: "PC" },
     { key: 2, value: "Mobile" },
   ]);
 
-  const [tagItems, setTagItems] = useState<Array<{ key: number; value: string }>>([
+  const [tagItems, setTagItems] = useState<Array<SelectItem>>([
     { key: 1, value: "Tough to beat" },
     { key: 2, value: "Hardest Difficulty" },
   ]);
@@ -22,145 +68,146 @@ export const GameForm: React.FC<{ form: FormInstance<IGame>; innerForm?: { name:
     localStorageTagItems && setTagItems(JSON.parse(localStorageTagItems));
   }, []);
 
+  const name = <F extends keyof GameFormValues>(field: F) => (prefix ? `${prefix}.${field}` : field) as FieldPath<AddGameFormValues> & F;
+  const id = (field: keyof GameFormValues) => (prefix ? `${prefix.replace(".", "_")}_${field}` : field);
+  const error = (field: keyof GameFormValues): string | undefined => (get(errors, name(field)) as FieldError | undefined)?.message;
+
   return (
-    <Row gutter={[24, 24]} style={{width: '100%'}}>
-      <Col xl={12} sm={24}>
-        <Form.Item
-          name={innerForm ? [innerForm.name, "title"] : "title"}
-          label="Title"
-          rules={[
-            {
-              required: true,
-              message: "Title required",
-            },
-          ]}
-        >
-          <Input className="form-control-clip-large" maxLength={200} size="large" placeholder="Enter Title" />
-        </Form.Item>
-      </Col>
-      <Col xl={12} sm={24}>
-        <Form.Item
-          name={innerForm ? [innerForm.name, "completion"] : "completion"}
-          label="Completion"
-          rules={[
-            {
-              required: true,
-              message: "Completion required",
-            },
-          ]}
-        >
-          <Input className="form-control-clip-large" maxLength={200} size="large" placeholder="Enter Completion" />
-        </Form.Item>
-      </Col>
-      <Col xl={12} sm={24}>
-        <Form.Item
-          name={innerForm ? [innerForm.name, "release_date"] : "release_date"}
-          label="Release Date"
-          rules={[
-            {
-              required: true,
-              message: "Realise date required",
-            },
-          ]}
-        >
-          <DatePicker
-            suffixIcon={false}
-            className="form-control-clip-large"
-            style={{ width: "100%", fontFamily: "joystix-monospace" }}
-            size="large"
-            placeholder="Enter Release Date"
-          />
-        </Form.Item>
-      </Col>
-      <Col xl={12} sm={24}>
-        <Form.Item
-          name={innerForm ? [innerForm.name, "last_completion"] : "last_completion"}
-          label="Date of Last Completion"
-          rules={[
-            {
-              required: true,
-              message: "Date of last completion required",
-            },
-          ]}
-        >
-          <DatePicker
-            suffixIcon={false}
-            className="form-control-clip-large"
-            style={{ width: "100%" }}
-            size="large"
-            placeholder="Enter Date of Last Completion"
-          />
-        </Form.Item>
-      </Col>
-      <Col xl={12} sm={24}>
-        <AppendableSelectDropdown
-          form={form}
-          formItemProps={{
-            name: innerForm ? [innerForm.name, "platform"] : "platform",
-            label: "Platform",
-            valuePropName: "value",
-            rules: [{ required: true, message: "Platform required" }],
-          }}
-          localStorageKey="platform-items"
-          selectItems={platformItems}
-          setSelectItems={setPlatformItems}
-          placeholder="Choose a Platform"
-          multiple={true}
+    <div className="grid w-full grid-cols-1 gap-6 pr-6 min-[1200px]:grid-cols-2">
+      <FormItem label="Title" htmlFor={id("title")} required error={error("title")}>
+        <Input
+          id={id("title")}
+          className="form-control-clip-large"
+          size="lg"
+          maxLength={200}
+          placeholder="Enter Title"
+          aria-invalid={!!error("title")}
+          {...register(name("title"), { required: "Title required" })}
         />
-      </Col>
-      <Col xl={12} sm={24} style={{ marginBottom: "-24px" }}>
-        <AppendableSelectDropdown
-          form={form}
-          formItemProps={{
-            name: innerForm ? [innerForm.name, "tags"] : "tags",
-            label: "Tags",
-          }}
-          localStorageKey="tag-items"
-          selectItems={tagItems}
-          setSelectItems={setTagItems}
-          placeholder="Select Tags"
-          multiple={true}
-          nullable={true}
+      </FormItem>
+
+      <FormItem label="Completion" htmlFor={id("completion")} required error={error("completion")}>
+        <Input
+          id={id("completion")}
+          className="form-control-clip-large"
+          size="lg"
+          maxLength={200}
+          placeholder="Enter Completion"
+          aria-invalid={!!error("completion")}
+          {...register(name("completion"), { required: "Completion required" })}
         />
-      </Col>
-      <Col xl={12} sm={24}>
-        <Row>
-          <Col span={24} style={{ marginBottom: "-24px" }}>
-            <Typography.Text style={{ position: "absolute", transform: "translate(25px, 5px)" }}>Original Copy</Typography.Text>
-            <Form.Item name={innerForm ? [innerForm.name, "original_copy"] : "original_copy"} valuePropName="checked">
-              <Checkbox />
-            </Form.Item>
-          </Col>
-          <Col span={24} style={{ marginBottom: "-24px" }}>
-            <Typography.Text style={{ position: "absolute", transform: "translate(25px, 5px)" }}>Free to Play</Typography.Text>
-            <Form.Item name={innerForm ? [innerForm.name, "free_to_play"] : "free_to_play"} valuePropName="checked">
-              <Checkbox />
-            </Form.Item>
-          </Col>
-          <Col span={24}>
-            <Typography.Text style={{ position: "absolute", transform: "translate(25px, 5px)" }}>Service</Typography.Text>
-            <Form.Item name={innerForm ? [innerForm.name, "service"] : "service"} valuePropName="checked">
-              <Checkbox
-                onClick={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  if (target.checked) {
-                    if (innerForm) {
-                      form.setFieldValue([innerForm.name, "orginal_copy"], true);
-                      return;
-                    }
-                    form.setFieldValue("original_copy", true);
-                  }
-                }}
+      </FormItem>
+
+      <FormItem label="Release Date" htmlFor={id("release_date")} required error={error("release_date")}>
+        <Controller
+          control={control}
+          name={name("release_date")}
+          rules={{ required: "Release date required" }}
+          render={({ field }) => (
+            <DatePicker
+              id={id("release_date")}
+              className="form-control-clip-large"
+              placeholder="Enter Release Date"
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              aria-invalid={!!error("release_date")}
+            />
+          )}
+        />
+      </FormItem>
+
+      <FormItem label="Date of Last Completion" htmlFor={id("last_completion")} required error={error("last_completion")}>
+        <Controller
+          control={control}
+          name={name("last_completion")}
+          rules={{ required: "Date of last completion required" }}
+          render={({ field }) => (
+            <DatePicker
+              id={id("last_completion")}
+              className="form-control-clip-large"
+              placeholder="Enter Date of Last Completion"
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              aria-invalid={!!error("last_completion")}
+            />
+          )}
+        />
+      </FormItem>
+
+      <FormItem label="Platform" htmlFor={id("platform")} required error={error("platform")}>
+        <Controller
+          control={control}
+          name={name("platform")}
+          rules={{ validate: (platforms) => platforms.length > 0 || "Platform required" }}
+          render={({ field }) => (
+            <AppendableSelectDropdown
+              id={id("platform")}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              invalid={!!error("platform")}
+              localStorageKey="platform-items"
+              selectItems={platformItems}
+              setSelectItems={setPlatformItems}
+              placeholder="Choose a Platform"
+            />
+          )}
+        />
+      </FormItem>
+
+      <FormItem label="Tags" htmlFor={id("tags")}>
+        <Controller
+          control={control}
+          name={name("tags")}
+          render={({ field }) => (
+            <AppendableSelectDropdown
+              id={id("tags")}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              localStorageKey="tag-items"
+              selectItems={tagItems}
+              setSelectItems={setTagItems}
+              placeholder="Select Tags"
+              nullable={true}
+            />
+          )}
+        />
+      </FormItem>
+
+      <div>
+        {checkboxFields.map(({ field, label }) => (
+          <div key={field} className="relative h-8">
+            <label htmlFor={id(field)} className="absolute top-[5px] left-[25px] leading-[22px]">
+              {label}
+            </label>
+            <div className="flex h-8 items-center drop-shadow-[0px_1px_1px_black]">
+              <Controller
+                control={control}
+                name={name(field)}
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <Checkbox
+                    id={id(field)}
+                    checked={value}
+                    onBlur={onBlur}
+                    onCheckedChange={(checked) => {
+                      onChange(checked === true);
+                      // A service game always counts as an original copy
+                      if (field === "service" && checked === true) setValue(name("original_copy"), true);
+                    }}
+                  />
+                )}
               />
-            </Form.Item>
-          </Col>
-        </Row>
-      </Col>
-      <Col xl={12} sm={24}>
-        <Form.Item name={innerForm ? [innerForm.name, "comment"] : "comment"} label="Comment">
-          <Input.TextArea rows={3} maxLength={300} style={{ resize: "none", overflow: "hidden" }} className="form-control-clip-large" />
-        </Form.Item>
-      </Col>
-    </Row>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <FormItem label="Comment" htmlFor={id("comment")}>
+        <Textarea id={id("comment")} rows={3} maxLength={300} className="form-control-clip-large" {...register(name("comment"))} />
+      </FormItem>
+    </div>
   );
 };

@@ -1,170 +1,79 @@
-import { Button, Form, Space, Typography } from "antd";
-import { Content } from "antd/es/layout/layout";
-import { PlusOutlined } from "@ant-design/icons";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import { Plus } from "lucide-react";
 import { useState } from "react";
-import { IGame } from "../interfaces";
-import { GameForm } from "../components/GameForm";
-import { DynamicColorBorder } from "../components/DynamicColorBorder";
+import { AddGameFormValues, GameForm, emptyGameFormValues } from "../components/GameForm";
+import { BorderStyling, DynamicColorBorder, createBorderStyling } from "../components/DynamicColorBorder";
+import { FormItem } from "../components/FormItem";
+import { Button } from "@/components/ui/button";
 
 const AddGame: React.FC = () => {
-  const onFinish = (values: any) => {
+  const onFinish = (values: AddGameFormValues) => {
     console.log("Received values of form:", values);
   };
 
-  const [form] = Form.useForm<IGame>();
-  const [borderColorObj, setBorderColorObj] = useState<
-    Array<{
-      key: number;
-      value: {
-        firstColorPercent: Array<number>;
-        secondColorPercent: Array<number>;
-        thirdColorPercent: Array<number>;
-        horizontalColorPercent: Array<number>;
-      };
-      colorsHorizontal: Array<string>;
-      colorsVertical: { right: Array<string>; left: Array<string> };
-    }>
-  >([]);
-  const [borderDLCKey, setBorderDLCKey] = useState<number>(0);
+  const form = useForm<AddGameFormValues>({
+    mode: "onChange",
+    defaultValues: { ...emptyGameFormValues, DLCs: [] },
+  });
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "DLCs" });
+  const [borderStylings, setBorderStylings] = useState<BorderStyling[]>([]);
 
-  const addDLCField = (add: () => void) => {
-    const getRandomInt = (min: number, max: number) => {
-      min = Math.ceil(min);
-      max = Math.floor(max);
-      return Math.floor(Math.random() * (max - min) + min);
-    };
-
-    const shuffleArr = (array: Array<string>) => {
-      let currentIndex = array.length,
-        randomIndex;
-
-      while (currentIndex !== 0) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex--;
-
-        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-      }
-
-      return array;
-    };
-
-    let firstColorPercent: number[] = [];
-    let secondColorPercent: number[] = [];
-    let thirdColorPercent: number[] = [];
-    let horizontalColorPercent: number[] = [];
-
-    const colorArrHorizontal = ["#47434d", "#1f1f29", "#555559", "#7e768a"];
-
-    firstColorPercent[0] = getRandomInt(10, 40);
-    secondColorPercent[0] = getRandomInt(firstColorPercent[0], 60);
-    thirdColorPercent[0] = getRandomInt(secondColorPercent[0], 80);
-
-    firstColorPercent[1] = getRandomInt(10, 40);
-    secondColorPercent[1] = getRandomInt(firstColorPercent[1], 60);
-    thirdColorPercent[1] = getRandomInt(secondColorPercent[1], 80);
-
-    horizontalColorPercent[0] = getRandomInt(40, 60);
-    horizontalColorPercent[1] = getRandomInt(40, 60);
-
-    shuffleArr(colorArrHorizontal);
-
-    const colorsVerticalArrRight = [colorArrHorizontal[0], colorArrHorizontal[2]];
-    const colorsVerticalArrLeft = [colorArrHorizontal[1], colorArrHorizontal[3]];
-
-    setBorderColorObj((prevState) => {
-      prevState.push({
-        key: borderDLCKey,
-        value: {
-          firstColorPercent,
-          secondColorPercent,
-          thirdColorPercent,
-          horizontalColorPercent,
-        },
-        colorsHorizontal: colorArrHorizontal,
-        colorsVertical: {
-          right: colorsVerticalArrRight,
-          left: colorsVerticalArrLeft,
-        },
-      });
-      return prevState;
-    });
-
-    setBorderDLCKey((prevState) => {
-      return (prevState += 1);
-    });
-
-    add();
+  const addDLCField = () => {
+    setBorderStylings((prevState) => [...prevState, createBorderStyling()]);
+    append(emptyGameFormValues);
   };
 
-  const removeDLCField = (remove: (name: number) => void, name: number, key: number) => {
-    remove(name);
-
-    setBorderColorObj((prevState) => {
-      const indexToRemove = prevState.findIndex((item) => item.key === key);
-      prevState.splice(indexToRemove, 1);
-      return prevState;
-    });
+  const removeDLCField = (index: number) => {
+    setBorderStylings((prevState) => prevState.filter((_, i) => i !== index));
+    remove(index);
   };
 
   return (
-    <Content style={{ padding: 20, textAlign: "start" }}>
-      <Form form={form} layout="vertical" name="dynamic_form_nest_item" onFinish={onFinish} autoComplete="off">
-        <GameForm form={form} />
+    <div className="p-5 text-start">
+      <FormProvider {...form}>
+        <form onSubmit={form.handleSubmit(onFinish)} autoComplete="off" noValidate className="leading-[1.5714]">
+          <GameForm />
 
-        <Form.List name="DLCs">
-          {(fields, { add, remove }) => (
-            <div style={{width: '100%'}}>
-              <Space style={{ marginLeft: 10, marginBottom: -12 }}>
-                <Typography.Title level={4}>DLC List</Typography.Title>
-              </Space>
-              {fields.map(({ key, name }) => {
-                const styling = borderColorObj[name];
-                return (
-                  <div key={key} className="DLC-outer">
-                    <DynamicColorBorder styling={styling}>
-                      <div style={{paddingBlock: 20, paddingInline: 30, display: 'flex'}}>
-                        <GameForm form={form} innerForm={{ name }} />
-                        <div style={{position: 'relative', width: 0, height: 0, top: -20, right: 40}}>
-                          <Button
-                            className="form-control-clip-small"
-                            size="small"
-                            style={{
-                              fontFamily: "inherit",
-                              backgroundColor: borderColorObj[name].colorsHorizontal[3],
-                              position: 'absolute'
-                            }}
-                            onClick={() => removeDLCField(remove, name, key)}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    </DynamicColorBorder>
-                  </div>
-                );
-              })}
-              <Form.Item style={{ marginTop: 22 }}>
-                <Button
-                  className="form-control-clip-large"
-                  size="large"
-                  style={{ width: 200, fontFamily: "inherit" }}
-                  onClick={() => addDLCField(add)}
-                  icon={<PlusOutlined />}
-                >
-                  Add field
-                </Button>
-              </Form.Item>
+          <div className="w-full">
+            <div className="-mb-3 ml-2.5 inline-flex items-center gap-2">
+              <h4 className="mt-[1.33em] mb-[0.5em] text-xl leading-[1.4] font-semibold">DLC List</h4>
             </div>
-          )}
-        </Form.List>
+            {fields.map((field, index) => (
+              <div key={field.id} className="DLC-outer">
+                <DynamicColorBorder styling={borderStylings[index]}>
+                  <div className="flex px-[30px] py-5">
+                    <GameForm prefix={`DLCs.${index}`} />
+                    {/* Zero-size anchor that pins the Remove button to the box's top-right corner */}
+                    <div className="relative -top-5 right-16 size-0">
+                      <Button
+                        size="sm"
+                        className="form-control-clip-small absolute"
+                        style={{ backgroundColor: borderStylings[index].colorsHorizontal[3] }}
+                        onClick={() => removeDLCField(index)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </DynamicColorBorder>
+              </div>
+            ))}
+            <FormItem className="mt-[22px]">
+              <Button className="form-control-clip-large w-[200px]" size="lg" onClick={addDLCField}>
+                <Plus className="size-4" />
+                Add field
+              </Button>
+            </FormItem>
+          </div>
 
-        <Form.Item style={{ marginTop: -20 }}>
-          <Button className="form-control-clip-large" size="large" style={{ width: 200, fontFamily: "inherit" }} htmlType="submit">
-            Submit
-          </Button>
-        </Form.Item>
-      </Form>
-    </Content>
+          <FormItem className="-mt-5">
+            <Button className="form-control-clip-large w-[200px]" size="lg" type="submit">
+              Submit
+            </Button>
+          </FormItem>
+        </form>
+      </FormProvider>
+    </div>
   );
 };
 
