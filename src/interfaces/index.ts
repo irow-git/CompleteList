@@ -26,3 +26,14 @@ export type NewGame = GameDetails & { DLCs: GameDetails[] };
 
 // What gets passed in when saving an existing game. DLCs without an id are new; existing DLCs left out are deleted
 export type GameUpdate = GameDetails & { id: string; DLCs: (GameDetails & { id?: string })[] };
+
+// Lists page through base games only: DLCs come nested in their game and don't count towards pageSize or total
+export interface PageRequest {
+  page: number; // 0-based
+  pageSize: number;
+}
+
+export interface GamePage {
+  games: IGame[];
+  total: number; // base games across all pages
+}

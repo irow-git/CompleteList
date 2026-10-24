@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
-import type { GameDetails, GameUpdate, IGame, NewGame } from "../../src/interfaces";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { GameDetails, GamePage, GameUpdate, IGame, NewGame, PageRequest } from "../../src/interfaces";
 import type { Db } from ".";
 import { gameMetadata, games } from "./schema";
 
@@ -28,14 +28,19 @@ const toGame = (base: GameRow, dlcs: GameRow[]): IGame => ({
   DLCs: dlcs.map((dlc) => ({ id: dlc.id, ...detailsOf(dlc) })),
 });
 
+// Case-insensitive by title, with the id as a tiebreaker so pages never overlap
+const listOrder = [sql`${games.title} collate nocase`, games.id];
+
+const isLive = isNull(gameMetadata.deleted_at);
+
 // Live (not soft-deleted) rows, optionally narrowed by an extra condition
 const liveRows = (tx: Db | Tx, where?: ReturnType<typeof eq>) =>
   tx
     .select({ game: games })
     .from(games)
     .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
-    .where(and(isNull(gameMetadata.deleted_at), where))
-    .orderBy(games.title)
+    .where(and(isLive, where))
+    .orderBy(...listOrder)
     .all()
     .map((row) => row.game);
 
@@ -53,17 +58,35 @@ const markChanged = (tx: Tx, ids: string[], now: Date, deleted = false) => {
     .run();
 };
 
-export function listGames(db: Db): IGame[] {
-  const rows = liveRows(db);
+export function listGames(db: Db, { page, pageSize }: PageRequest): GamePage {
+  const isLiveBase = and(isLive, isNull(games.parent_id));
+
+  const [{ total }] = db
+    .select({ total: count() })
+    .from(games)
+    .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
+    .where(isLiveBase)
+    .all();
+
+  const bases = db
+    .select({ game: games })
+    .from(games)
+    .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
+    .where(isLiveBase)
+    .orderBy(...listOrder)
+    .limit(pageSize)
+    .offset(page * pageSize)
+    .all()
+    .map((row) => row.game);
+
+  const dlcs = bases.length > 0 ? liveRows(db, inArray(games.parent_id, bases.map((base) => base.id))) : [];
   const dlcsByParent = new Map<string, GameRow[]>();
-  for (const row of rows) {
-    if (row.parent_id) dlcsByParent.set(row.parent_id, [...(dlcsByParent.get(row.parent_id) ?? []), row]);
-  }
-  return rows.filter((row) => !row.parent_id).map((base) => toGame(base, dlcsByParent.get(base.id) ?? []));
+  for (const dlc of dlcs) dlcsByParent.set(dlc.parent_id!, [...(dlcsByParent.get(dlc.parent_id!) ?? []), dlc]);
+
+  return { games: bases.map((base) => toGame(base, dlcsByParent.get(base.id) ?? [])), total };
 }
 
 export function createGame(db: Db, game: NewGame): IGame {
-  console.log('server op', game)
   return db.transaction((tx) => {
     const now = new Date();
     const base = insertRow(tx, game, null, now);

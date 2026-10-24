@@ -7,7 +7,7 @@ const api: ElectronApi = {
     version: () => ipcRenderer.invoke("app:version"),
   },
   games: {
-    list: () => ipcRenderer.invoke("games:list"),
+    list: (request) => ipcRenderer.invoke("games:list", request),
     create: (game) => ipcRenderer.invoke("games:create", game),
     update: (game) => ipcRenderer.invoke("games:update", game),
     remove: (id) => ipcRenderer.invoke("games:remove", id),

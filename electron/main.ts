@@ -35,7 +35,7 @@ function createWindow() {
 function registerIpcHandlers(db: Db) {
   ipcMain.handle("app:version", () => app.getVersion());
 
-  ipcMain.handle("games:list", () => listGames(db));
+  ipcMain.handle("games:list", (_event, request) => listGames(db, request));
   ipcMain.handle("games:create", (_event, game) => createGame(db, game));
   ipcMain.handle("games:update", (_event, game) => updateGame(db, game));
   ipcMain.handle("games:remove", (_event, id) => removeGame(db, id));

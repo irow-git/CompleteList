@@ -1,51 +1,75 @@
 import { create } from "zustand";
-import { doc, getDoc } from "firebase/firestore";
-import db from "../firebaseConfig";
-import { IGame, NewGame } from "../interfaces";
+import { GameUpdate, IGame, NewGame } from "../interfaces";
+
+export const PAGE_SIZE = 25;
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 
 interface GamesState {
+  // The current page of base games, each with its DLCs nested
   games: IGame[];
+  page: number; // 0-based
+  pageSize: number;
+  total: number; // base games across all pages
   status: LoadStatus;
   error?: string;
 
-  load(): Promise<void>;
+  loadPage(page: number): Promise<void>;
+  reload(): Promise<void>;
   add(game: NewGame): Promise<IGame>;
-  update(game: IGame): Promise<void>;
+  update(game: GameUpdate): Promise<IGame>;
   remove(id: string): Promise<void>;
 }
 
-export const useGamesStore = create<GamesState>()((set) => ({
+// Bumped on every load, so a slow response for an older request can't overwrite a newer page
+let latestRequest = 0;
+
+export const useGamesStore = create<GamesState>()((set, get) => ({
   games: [],
+  page: 0,
+  pageSize: PAGE_SIZE,
+  total: 0,
   status: "idle",
   error: undefined,
 
-  // Temporary: still reads the single Firestore doc so the table keeps showing data.
-  // Becomes `await window.api.games.list()` once SQLite is in place.
-  load: async () => {
+  loadPage: async (page) => {
+    const request = ++latestRequest;
+    const { pageSize } = get();
     set({ status: "loading", error: undefined });
     try {
-      // const snapshot = await getDoc(doc(db, "main", "allGames"));
-      // const data = snapshot.exists() ? snapshot.data() : {};
-      // const games = Object.entries(data).map(([id, game]) => ({ ...game, id }) as IGame);
-      // set({ games, status: "ready" });
+      let result = await window.api.games.list({ page, pageSize });
+      // After deletions the requested page can be past the end; fall back to the last one
+      const lastPage = Math.max(0, Math.ceil(result.total / pageSize) - 1);
+      if (page > lastPage) {
+        page = lastPage;
+        result = await window.api.games.list({ page, pageSize });
+      }
+      if (request !== latestRequest) return;
+      set({ games: result.games, total: result.total, page, status: "ready" });
     } catch (error) {
-      //set({ status: "error", error: String(error) });
+      if (request !== latestRequest) return;
+      set({ status: "error", error: String(error) });
     }
   },
 
+  // Changes re-read the current page rather than patching `games`: a new or renamed game can land on another page,
+  // and adds/removes shift the total and what's on this page
+  reload: () => get().loadPage(get().page),
+
   add: async (game) => {
-    return window.api.games.create(game);
+    const created = await window.api.games.create(game);
+    await get().reload();
+    return created;
   },
 
-  // TODO: window.api.games.upsert(), then replace the game in `games` by id
   update: async (game) => {
-    throw new Error("gamesStore.update is not implemented yet");
+    const updated = await window.api.games.update(game);
+    await get().reload();
+    return updated;
   },
 
-  // TODO: window.api.games.remove(), then filter the game out of `games`
   remove: async (id) => {
-    throw new Error("gamesStore.remove is not implemented yet");
+    await window.api.games.remove(id);
+    await get().reload();
   },
 }));

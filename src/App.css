@@ -23,31 +23,33 @@ a:hover {
 
 .DLC-outer {
   align-items: start;
-  padding-inline: 11px;
+  padding-inline: 10px;
 }
 
 /*outer*/
 .DLC-top-border {
-  border-top: 11px solid;
+  border-top: 10px solid;
+  background-color: #F0F0F0;
 }
 
 /*middle*/
 .DLC-right-border {
-  border-right: 11px solid;
-  margin-right: -22px;
+  border-right: 10px solid;
+  margin-right: -20px;
+  
 }
 
 /*middle*/
 .DLC-left-border {
-  border-left: 11px solid;
-  margin-left: -22px;
-  padding-top: 11px;
+  border-left: 10px solid;
+  margin-left: -20px;
+  padding-top: 10px;
 }
 
 /*inner*/
 .DLC-bottom-border {
-  border-bottom: 11px solid;
-  padding-inline: 11px;
+  border-bottom: 10px solid;
+  padding-inline: 10px;
 }
 
 .form-control-clip-large {
@@ -128,6 +130,7 @@ a:hover {
     4px 4px,
     0px 4px
   );
+  box-shadow: rgba(50, 50, 105, 0.15) 0px 2px 5px 0px, rgba(0, 0, 0, 0.05) 0px 1px 1px 0px;
 }
 
 .option-clip {

@@ -4,10 +4,10 @@ import {
   flexRender,
   getCoreRowModel,
   getExpandedRowModel,
-  getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { IGame } from "../interfaces";
+import { useShallow } from "zustand/react/shallow";
 import { useGamesStore } from "../store/gamesStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -15,8 +15,6 @@ import { cn } from "@/lib/utils";
 
 // Firestore documents carry more fields than IGame declares
 type GameRow = IGame & Record<string, any>;
-
-const PAGE_SIZE = 11;
 
 const tableClass = "text-[1.2em] leading-[1.5714]";
 const headRowClass = "bg-muted hover:bg-muted";
@@ -107,10 +105,13 @@ const columns: ColumnDef<GameRow>[] = [
 
 const TableView: React.FC = () => {
 
-  const gamesStore: GameRow[] = useGamesStore((state) => state.games);
+  const { games, page, pageSize, total, loadPage } = useGamesStore(
+    useShallow(({ games, page, pageSize, total, loadPage }) => ({ games, page, pageSize, total, loadPage }))
+  );
 
+  // Paging happens in the database: the store holds one page, and changing page asks it for another
   const table = useReactTable({
-    data: gamesStore,
+    data: games as GameRow[],
     columns,
     // Render raw values like antd did (booleans render nothing) instead of TanStack's toString()
     defaultColumn: { cell: ({ getValue }) => getValue() },
@@ -118,13 +119,16 @@ const TableView: React.FC = () => {
     getRowCanExpand: () => true,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageIndex: 0, pageSize: PAGE_SIZE } },
+    manualPagination: true,
+    rowCount: total,
+    state: { pagination: { pageIndex: page, pageSize } },
+    onPaginationChange: (updater) => {
+      const next = typeof updater === "function" ? updater({ pageIndex: page, pageSize }) : updater;
+      loadPage(next.pageIndex);
+    },
   });
 
   const { pageIndex } = table.getState().pagination;
-
-  console.log("GAMES: ", gamesStore);
 
   return (
     <div className="font-chava">

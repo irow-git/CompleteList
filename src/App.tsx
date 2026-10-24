@@ -9,11 +9,11 @@ import CardView from "./pages/CardView";
 import LetterView from "./pages/LetterView";
 
 const App: React.FC = () => {
-  const loadGames = useGamesStore((state) => state.load);
+  const loadPage = useGamesStore((state) => state.loadPage);
 
   useEffect(() => {
-    loadGames();
-  }, [loadGames]);
+    loadPage(0);
+  }, [loadPage]);
 
   return (
     <div className="App min-h-screen bg-sand font-pixel">

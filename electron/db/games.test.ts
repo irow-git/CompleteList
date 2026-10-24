@@ -25,6 +25,8 @@ const details = (title: string): GameDetails => ({
 const metadataOf = (db: Db, id: string) =>
   db.select().from(schema.gameMetadata).where(eq(schema.gameMetadata.game_id, id)).get()!;
 
+const firstPage = { page: 0, pageSize: 25 };
+
 let db: Db;
 
 beforeEach(() => {
@@ -37,13 +39,36 @@ beforeEach(() => {
 test("creates a game with DLCs and lists it back", () => {
   const created = createGame(db, { ...details("Witcher 3"), DLCs: [details("Blood and Wine"), details("Hearts of Stone")] });
 
-  expect(listGames(db)).toEqual([created]);
+  expect(listGames(db, firstPage).games).toEqual([created]);
   expect(created.DLCs.map((dlc) => dlc.title)).toEqual(["Blood and Wine", "Hearts of Stone"]);
   expect(created.platform).toEqual(["PC"]);
   expect(created.release_date).toEqual(new Date("2015-05-19T00:00:00.000Z"));
   // Stored as epoch milliseconds (UTC)
   expect(db.$client.prepare("select release_date from games limit 1").get()).toEqual({ release_date: Date.UTC(2015, 4, 19) });
   expect(metadataOf(db, created.DLCs[0].id)).toMatchObject({ dirty: true, deleted_at: null });
+});
+
+test("lists base games a page at a time, with DLCs nested and not counted", () => {
+  for (let i = 1; i <= 30; i++) {
+    createGame(db, { ...details(`Game ${String(i).padStart(2, "0")}`), DLCs: [details(`DLC of ${i}`)] });
+  }
+  removeGame(db, listGames(db, firstPage).games[0].id);
+
+  const first = listGames(db, firstPage);
+  const second = listGames(db, { page: 1, pageSize: 25 });
+
+  expect(first.total).toBe(29);
+  expect(first.games).toHaveLength(25);
+  expect(first.games[0].title).toBe("Game 02");
+  expect(first.games[0].DLCs.map((dlc) => dlc.title)).toEqual(["DLC of 2"]);
+  expect(second.games.map((game) => game.title)).toEqual(["Game 27", "Game 28", "Game 29", "Game 30"]);
+  expect(listGames(db, { page: 2, pageSize: 25 }).games).toEqual([]);
+});
+
+test("titles sort case-insensitively", () => {
+  for (const title of ["beta", "Alpha", "gamma"]) createGame(db, { ...details(title), DLCs: [] });
+
+  expect(listGames(db, firstPage).games.map((game) => game.title)).toEqual(["Alpha", "beta", "gamma"]);
 });
 
 test("update adds, edits and removes DLCs, touching only changed rows", () => {
@@ -72,7 +97,7 @@ test("remove soft-deletes the game and its DLCs", () => {
 
   removeGame(db, game.id);
 
-  expect(listGames(db)).toEqual([]);
+  expect(listGames(db, firstPage).games).toEqual([]);
   expect(metadataOf(db, game.id).deleted_at).toBeInstanceOf(Date);
   expect(metadataOf(db, game.DLCs[0].id).deleted_at).toBeInstanceOf(Date);
 });

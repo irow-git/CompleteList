@@ -35,7 +35,7 @@ export const createBorderStyling = (): BorderStyling => {
   let thirdColorPercent: number[] = [];
   let horizontalColorPercent: number[] = [];
 
-  const colorArrHorizontal = ["#47434d", "#1f1f29", "#555559", "#7e768a"];
+  const colorArrHorizontal = ["#ded7d1", "#d1cac5", "#555559", "#7e768a"];
 
   firstColorPercent[0] = getRandomInt(10, 40);
   secondColorPercent[0] = getRandomInt(firstColorPercent[0], 60);

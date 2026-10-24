@@ -1,4 +1,4 @@
-import type { GameUpdate, IGame, NewGame } from "../src/interfaces";
+import type { GamePage, GameUpdate, IGame, NewGame, PageRequest } from "../src/interfaces";
 
 // Contract between the preload script and the renderer: everything the React app can ask the main process for.
 // The preload implements it, and src/electron.d.ts types `window.api` with it.
@@ -9,7 +9,7 @@ export interface ElectronApi {
     version(): Promise<string>;
   };
   games: {
-    list(): Promise<IGame[]>;
+    list(request: PageRequest): Promise<GamePage>;
     create(game: NewGame): Promise<IGame>;
     update(game: GameUpdate): Promise<IGame>;
     remove(id: string): Promise<void>;
