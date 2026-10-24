@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8abc7215-8e94-4002-bf0a-7017fed309f7",
+  "id": "c757d83f-9b8d-45c1-8e90-c7b19361cc7a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "game_metadata": {
@@ -105,14 +105,14 @@
         },
         "release_date": {
           "name": "release_date",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
         "last_completion": {
           "name": "last_completion",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

@@ -63,6 +63,7 @@ export function listGames(db: Db): IGame[] {
 }
 
 export function createGame(db: Db, game: NewGame): IGame {
+  console.log('server op', game)
   return db.transaction((tx) => {
     const now = new Date();
     const base = insertRow(tx, game, null, now);

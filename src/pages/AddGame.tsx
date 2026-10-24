@@ -5,10 +5,18 @@ import { AddGameFormValues, GameForm, emptyGameFormValues } from "../components/
 import { BorderStyling, DynamicColorBorder, createBorderStyling } from "../components/DynamicColorBorder";
 import { FormItem } from "../components/FormItem";
 import { Button } from "@/components/ui/button";
+import { useGamesStore } from "@/store/gamesStore";
+import { useNavigate } from "react-router-dom";
 
 const AddGame: React.FC = () => {
+  const navigate = useNavigate();
+
+  const addGame = useGamesStore((state) => state.add);
+
   const onFinish = (values: AddGameFormValues) => {
-    console.log("Received values of form:", values);
+    addGame(values).then(() => {
+      navigate('/');
+    })
   };
 
   const form = useForm<AddGameFormValues>({

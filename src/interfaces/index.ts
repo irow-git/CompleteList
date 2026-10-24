@@ -1,9 +1,9 @@
-// A game or DLC as it's stored. Dates are ISO strings so records pass through JSON (SQLite, Firestore) unchanged
+// A game or DLC as it's stored. Dates are calendar days held as that day's UTC midnight (see src/lib/dates.ts)
 export interface GameDetails {
   title: string;
   completion: string;
-  release_date: string | null;
-  last_completion: string | null;
+  release_date: Date | null;
+  last_completion: Date | null;
   platform: string[];
   tags: string[];
   original_copy: boolean;

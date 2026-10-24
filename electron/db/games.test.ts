@@ -12,7 +12,7 @@ import * as schema from "./schema";
 const details = (title: string): GameDetails => ({
   title,
   completion: "Main story",
-  release_date: "2015-05-19",
+  release_date: new Date(Date.UTC(2015, 4, 19)),
   last_completion: null,
   platform: ["PC"],
   tags: [],
@@ -40,6 +40,9 @@ test("creates a game with DLCs and lists it back", () => {
   expect(listGames(db)).toEqual([created]);
   expect(created.DLCs.map((dlc) => dlc.title)).toEqual(["Blood and Wine", "Hearts of Stone"]);
   expect(created.platform).toEqual(["PC"]);
+  expect(created.release_date).toEqual(new Date("2015-05-19T00:00:00.000Z"));
+  // Stored as epoch milliseconds (UTC)
+  expect(db.$client.prepare("select release_date from games limit 1").get()).toEqual({ release_date: Date.UTC(2015, 4, 19) });
   expect(metadataOf(db, created.DLCs[0].id)).toMatchObject({ dirty: true, deleted_at: null });
 });
 

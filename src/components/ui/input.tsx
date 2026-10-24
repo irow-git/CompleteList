@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
-  "min-w-0 bg-sand text-black/88 outline-none placeholder:text-black/25 aria-invalid:bg-error-bg",
+  "min-w-0 bg-sand text-black/88 outline-none truncate placeholder:text-black/25 aria-invalid:bg-error-bg",
   {
     variants: {
       size: {

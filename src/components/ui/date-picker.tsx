@@ -1,14 +1,12 @@
 import * as React from "react"
 import { DayPicker } from "react-day-picker"
-import { addMonths, addYears, format, isValid, parse, setMonth, setYear } from "date-fns"
+import { addMonths, addYears, format, setMonth, setYear } from "date-fns"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { RemoveButton } from "@/components/ui/remove-button"
 import { cn } from "@/lib/utils"
-
-const DATE_FORMAT = "yyyy-MM-dd"
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+import { formatDay, fromUtcDay, toUtcDay } from "@/lib/dates"
 
 type View = "date" | "month" | "year"
 
@@ -152,6 +150,8 @@ function CalendarPanel({
   )
 }
 
+// The value is the picked day's UTC midnight (see src/lib/dates.ts); it's shown in DISPLAY_DATE_FORMAT.
+// Dates can only be picked from the calendar, not typed.
 function DatePicker({
   id,
   value,
@@ -170,32 +170,18 @@ function DatePicker({
   "aria-invalid"?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
-  const [text, setText] = React.useState("")
-  const [month, setMonthState] = React.useState(() => value ?? new Date())
+  const selected = value ? fromUtcDay(value) : undefined
+  const [month, setMonthState] = React.useState(() => selected ?? new Date())
   const anchorRef = React.useRef<HTMLDivElement>(null)
 
-  React.useEffect(() => {
-    setText(value ? format(value, DATE_FORMAT) : "")
-  }, [value])
-
-  const openPicker = () => {
-    if (open) return
-    setMonthState(value ?? new Date())
-    setOpen(true)
+  const togglePicker = () => {
+    if (!open) setMonthState(selected ?? new Date())
+    setOpen(!open)
   }
 
-  const select = (date: Date | undefined) => {
-    onChange(date)
+  const select = (date: Date) => {
+    onChange(toUtcDay(date))
     setOpen(false)
-  }
-
-  const onTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setText(event.target.value)
-    const parsed = parse(event.target.value, DATE_FORMAT, new Date())
-    if (DATE_PATTERN.test(event.target.value) && isValid(parsed)) {
-      onChange(parsed)
-      setMonthState(parsed)
-    }
   }
 
   return (
@@ -209,28 +195,21 @@ function DatePicker({
             className
           )}
         >
-          <input
+          <button
             id={id}
-            value={text}
-            placeholder={placeholder}
-            autoComplete="off"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={open}
             aria-invalid={ariaInvalid}
-            className="w-full min-w-0 bg-transparent px-2.5 text-lg leading-[27px] text-black/88 outline-none placeholder:text-black/25"
-            onFocus={openPicker}
-            onClick={openPicker}
-            onChange={onTextChange}
-            onBlur={() => {
-              setText(value ? format(value, DATE_FORMAT) : "")
-              onBlur?.()
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault()
-                setOpen(false)
-              }
-              if (event.key === "Escape") setOpen(false)
-            }}
-          />
+            className={cn(
+              "w-full min-w-0 cursor-pointer truncate bg-transparent px-2.5 text-left text-lg leading-[27px] text-black/88 outline-none",
+              !value && "text-black/25"
+            )}
+            onClick={togglePicker}
+            onBlur={onBlur}
+          >
+            {value ? formatDay(value) : placeholder}
+          </button>
           {value && (
             <RemoveButton
               aria-label="Clear date"
@@ -247,16 +226,16 @@ function DatePicker({
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
         onInteractOutside={(event) => {
-          // Clicks on the input itself shouldn't close the popup it just opened
+          // Clicks on the field itself are handled by togglePicker, not treated as "outside"
           if (anchorRef.current?.contains(event.target as Node)) event.preventDefault()
         }}
         className="date-picker-container w-auto rounded-none border-0 border-t-[5px] bg-ink p-0 font-chava text-sm leading-[22px] text-white shadow-[0_6px_16px_0_rgba(0,0,0,0.08),0_3px_6px_-4px_rgba(0,0,0,0.12),0_9px_28px_8px_rgba(0,0,0,0.05)]"
       >
         <div className="date-picker-layout border-r-[5px] border-b-[5px]">
           <div className="w-72">
-            <CalendarPanel value={value} month={month} onMonthChange={setMonthState} onSelect={select} />
+            <CalendarPanel value={selected} month={month} onMonthChange={setMonthState} onSelect={select} />
             <div className="h-[38px] border-l-[5px] border-l-[#ebe3dc] text-center leading-[38px]">
-              <button type="button" className="cursor-pointer" onClick={() => select(new Date(new Date().setHours(0, 0, 0, 0)))}>
+              <button type="button" className="cursor-pointer" onClick={() => select(new Date())}>
                 Today
               </button>
             </div>

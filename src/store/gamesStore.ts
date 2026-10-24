@@ -26,18 +26,17 @@ export const useGamesStore = create<GamesState>()((set) => ({
   load: async () => {
     set({ status: "loading", error: undefined });
     try {
-      const snapshot = await getDoc(doc(db, "main", "allGames"));
-      const data = snapshot.exists() ? snapshot.data() : {};
-      const games = Object.entries(data).map(([id, game]) => ({ ...game, id }) as IGame);
-      set({ games, status: "ready" });
+      // const snapshot = await getDoc(doc(db, "main", "allGames"));
+      // const data = snapshot.exists() ? snapshot.data() : {};
+      // const games = Object.entries(data).map(([id, game]) => ({ ...game, id }) as IGame);
+      // set({ games, status: "ready" });
     } catch (error) {
-      set({ status: "error", error: String(error) });
+      //set({ status: "error", error: String(error) });
     }
   },
 
-  // TODO: window.api.games.upsert(), then add the returned game to `games`
   add: async (game) => {
-    throw new Error("gamesStore.add is not implemented yet");
+    return window.api.games.create(game);
   },
 
   // TODO: window.api.games.upsert(), then replace the game in `games` by id

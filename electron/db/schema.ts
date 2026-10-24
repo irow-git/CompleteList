@@ -9,8 +9,9 @@ export const games = sqliteTable(
     parent_id: text().references((): AnySQLiteColumn => games.id, { onDelete: "cascade" }),
     title: text().notNull(),
     completion: text().notNull(),
-    release_date: text(), // ISO date
-    last_completion: text(), // ISO date
+    // Calendar days, stored as that day's UTC midnight (see src/lib/dates.ts)
+    release_date: integer({ mode: "timestamp_ms" }),
+    last_completion: integer({ mode: "timestamp_ms" }),
     platform: text({ mode: "json" }).$type<string[]>().notNull().$defaultFn(() => []),
     tags: text({ mode: "json" }).$type<string[]>().notNull().$defaultFn(() => []),
     original_copy: integer({ mode: "boolean" }).notNull().default(false),

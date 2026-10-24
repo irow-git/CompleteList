@@ -6,21 +6,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
-import { GameDetails } from "../interfaces";
+import { GameDetails, NewGame } from "../interfaces";
 
-// Same fields as the stored game, but the date pickers work with Date objects instead of ISO strings
-export type GameFormValues = Omit<GameDetails, "release_date" | "last_completion"> & {
-  release_date?: Date;
-  last_completion?: Date;
-};
+// The form edits exactly what gets stored, so submitted values can go straight to the database (AddGameFormValues = NewGame)
+export type GameFormValues = GameDetails;
 
-export type AddGameFormValues = GameFormValues & { DLCs: GameFormValues[] };
+export type AddGameFormValues = NewGame;
 
 export const emptyGameFormValues: GameFormValues = {
   title: "",
   completion: "",
-  release_date: undefined,
-  last_completion: undefined,
+  release_date: null,
+  last_completion: null,
   platform: [],
   tags: [],
   original_copy: false,
@@ -101,9 +98,9 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
             <DatePicker
               id={id("release_date")}
               className="form-control-clip-large"
-              placeholder="Enter Release Date"
-              value={field.value}
-              onChange={field.onChange}
+              placeholder="Choose Release Date"
+              value={field.value ?? undefined}
+              onChange={(date) => field.onChange(date ?? null)}
               onBlur={field.onBlur}
               aria-invalid={!!error("release_date")}
             />
@@ -120,9 +117,9 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
             <DatePicker
               id={id("last_completion")}
               className="form-control-clip-large"
-              placeholder="Enter Date of Last Completion"
-              value={field.value}
-              onChange={field.onChange}
+              placeholder="Choose Date of Last Completion"
+              value={field.value ?? undefined}
+              onChange={(date) => field.onChange(date ?? null)}
               onBlur={field.onBlur}
               aria-invalid={!!error("last_completion")}
             />
