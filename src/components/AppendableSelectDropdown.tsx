@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "pixelarticons/react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,6 +127,7 @@ const AppendableSelectDropdown: React.FC<{
             event.stopPropagation();
             onChange(value.filter((v) => v !== tagValue));
           }}
+          size="sm"
         />
       )}
     </span>
@@ -167,7 +168,7 @@ const AppendableSelectDropdown: React.FC<{
           )}
 
           <span className={cn("pointer-events-none absolute top-1/2 right-[11px] -mt-1.5 flex size-3 items-center justify-center text-black/25", clearable && "group-hover:hidden")}>
-            <ChevronDown className="size-6 shrink-0" strokeWidth={1.25} />
+            <ChevronDown className="size-6 shrink-0" />
           </span>
           {clearable && (
             <RemoveButton
@@ -177,6 +178,7 @@ const AppendableSelectDropdown: React.FC<{
                 event.stopPropagation();
                 onChange([]);
               }}
+              size="lg"
             />
           )}
         </div>
@@ -218,7 +220,7 @@ const AppendableSelectDropdown: React.FC<{
                 )}
               >
                 <span className="flex-auto truncate">{item.value}</span>
-                {selected && <Check className="size-3.5" strokeWidth={2.5} />}
+                {selected && <Check className="size-6" />}
                 {item.key > LAST_DEFAULT_KEY && (
                   <Button
                     size="sm"

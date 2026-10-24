@@ -1,5 +1,5 @@
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
-import { Plus } from "lucide-react";
+import { Plus } from "pixelarticons/react";
 import { useState } from "react";
 import { AddGameFormValues, GameForm, emptyGameFormValues } from "./GameForm";
 import { BorderStyling, DynamicColorBorder, createBorderStyling } from "./DynamicColorBorder";
@@ -58,7 +58,7 @@ export const GameEditor: React.FC<{
             ))}
             <FormItem className="mt-[22px]">
               <Button className="form-control-clip-large w-[200px]" size="lg" onClick={addDLCField}>
-                <Plus className="size-4" />
+                <Plus className="size-6" />
                 Add field
               </Button>
             </FormItem>

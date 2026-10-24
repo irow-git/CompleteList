@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { Check, ChevronLeft, ChevronRight, Minus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Close, Minus, Pencil, Plus, Trash } from "pixelarticons/react";
 import { formatDay } from "@/lib/dates";
 
 // How plain values show up in cells; a column that needs something else sets its own `cell`
@@ -31,7 +31,7 @@ const renderValue = (value: unknown): React.ReactNode => {
   // The only Dates on a game are calendar days, which must be read through formatDay (see src/lib/dates.ts)
   if (value instanceof Date) return formatDay(value);
   if (typeof value === "boolean") {
-    return value ? <Check size={18} strokeWidth={3} className="text-green-700" aria-label="Yes" /> : <X size={18} strokeWidth={3} className="text-red-600" aria-label="No" />;
+    return value ? <Check className="size-6 text-green-700" aria-label="Yes" /> : <Close className="size-6 text-red-600" aria-label="No" />;
   }
   if (Array.isArray(value)) return value.join(", ");
   return String(value);
@@ -39,12 +39,12 @@ const renderValue = (value: unknown): React.ReactNode => {
 
 // Fixed layout so the DLC table's columns line up with its game's (see dlcColumns)
 const tableClass = "table-fixed text-[1.2em] leading-[1.5714]";
-const headRowClass = "bg-muted hover:bg-muted";
+const headRowClass = "bg-dirty-white hover:bg-dirty-white";
 const headClass =
   "relative h-auto p-4 text-center font-semibold whitespace-normal not-last:before:absolute not-last:before:top-1/2 not-last:before:right-0 not-last:before:h-[1.6em] not-last:before:w-px not-last:before:-translate-y-1/2 not-last:before:bg-border";
 const cellClass = "p-4 text-left whitespace-normal";
 const iconButtonClass =
-  "inline-flex size-[26px] cursor-pointer items-center justify-center bg-white leading-none hover:bg-sand [&_svg]:size-4";
+  "inline-flex size-[26px] cursor-pointer items-center justify-center bg-white leading-none hover:bg-sand [&_svg]:size-6";
 
 const EXPAND_WIDTH = 48;
 const ACTIONS_WIDTH = 112;
@@ -56,11 +56,11 @@ const GameActions: React.FC<{ game: IGame }> = ({ game }) => {
   return (
     <span className="inline-flex gap-2">
       <Link to={`/edit/${game.id}`} className={iconButtonClass} aria-label={`Edit ${game.title}`} title="Edit">
-        <Pencil />
+        <Pencil className="size-6 shrink-0" />
       </Link>
       <AlertDialog>
         <AlertDialogTrigger className={cn(iconButtonClass, "hover:border-destructive hover:text-destructive")} aria-label={`Delete ${game.title}`} title="Delete">
-          <Trash2 />
+          <Trash className="size-6 shrink-0" />
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogTitle>Delete {game.title}?</AlertDialogTitle>
@@ -112,7 +112,7 @@ const columns = [
           onClick={row.getToggleExpandedHandler()}
           className="inline-flex size-[24px] cursor-pointer items-center justify-center bg-white leading-none hover:bg-sand"
         >
-          {row.getIsExpanded() ? <Minus size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+          {row.getIsExpanded() ? <Minus className="size-6" /> : <Plus className="size-6" />}
         </button>
       ),
   }),
@@ -147,7 +147,7 @@ const DlcTable: React.FC<{ dlcs: IDLC[] }> = ({ dlcs }) => {
           <col key={index} style={column.size ? { width: column.size } : undefined} />
         ))}
       </colgroup>
-      <TableHeader>
+      <TableHeader className="option-clip">
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id} className={headRowClass}>
             {headerGroup.headers.map((header) => (
@@ -207,7 +207,7 @@ const TableView: React.FC = () => {
             <col key={index} style={column.size ? { width: column.size } : undefined} />
           ))}
         </colgroup>
-        <TableHeader>
+        <TableHeader className="option-clip">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className={headRowClass}>
               {headerGroup.headers.map((header) => (
@@ -239,7 +239,7 @@ const TableView: React.FC = () => {
                   ))}
                 </TableRow>
                 {row.getIsExpanded() && (
-                  <TableRow className="bg-muted hover:bg-muted">
+                  <TableRow className="bg-white hover:bg-white">
                     <TableCell colSpan={columns.length} className="p-0 text-sm" style={{ paddingLeft: EXPAND_WIDTH }}>
                       <DlcTable dlcs={row.original.DLCs} />
                     </TableCell>
@@ -260,7 +260,7 @@ const TableView: React.FC = () => {
             disabled={!table.getCanPreviousPage()}
             aria-label="Previous page"
           >
-            <ChevronLeft size={22} strokeWidth={4} />
+            <ChevronLeft className="size-6" />
           </button>
           {Array.from({ length: table.getPageCount() }, (_, page) => (
             <button
@@ -269,8 +269,8 @@ const TableView: React.FC = () => {
               aria-current={page === pageIndex ? "page" : undefined}
               onClick={() => table.setPageIndex(page)}
               className={cn(
-                "size-8 cursor-pointer text-[18px]",
-                page === pageIndex ? "border-be-4 border-be-gray-400 text-ink" : "hover:bg-muted"
+                "size-8 cursor-pointer text-[20px]",
+                page === pageIndex ? "border-be-3 border-be-gray-400 text-ink" : "hover:bg-muted"
               )}
             >
               {page + 1}
@@ -283,7 +283,7 @@ const TableView: React.FC = () => {
             disabled={!table.getCanNextPage()}
             aria-label="Next page"
           >
-            <ChevronRight size={22} strokeWidth={4} />
+            <ChevronRight className="size-6" />
           </button>
         </nav>
       )}

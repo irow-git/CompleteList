@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { CheckIcon } from "lucide-react"
+import { Check } from "pixelarticons/react"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
 
 function Checkbox({
@@ -13,7 +13,7 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer flex size-4 shrink-0 cursor-pointer items-center justify-center border border-input bg-sand outline-none transition-colors hover:border-primary focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:hover:border-transparent data-[state=checked]:hover:bg-black/54",
+        "peer flex size-5 shrink-0 cursor-pointer items-center justify-center border border-input bg-sand outline-none transition-colors hover:border-primary focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:hover:border-transparent data-[state=checked]:hover:bg-black/54",
         className
       )}
       {...props}
@@ -22,7 +22,7 @@ function Checkbox({
         data-slot="checkbox-indicator"
         className="grid place-content-center text-current transition-none"
       >
-        <CheckIcon className="size-3" strokeWidth={3} />
+        <Check className="size-6" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

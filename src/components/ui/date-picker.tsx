@@ -1,7 +1,7 @@
 import * as React from "react"
 import { DayPicker } from "react-day-picker"
 import { addMonths, addYears, format, setMonth, setYear } from "date-fns"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "pixelarticons/react"
 
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { RemoveButton } from "@/components/ui/remove-button"
@@ -35,11 +35,12 @@ function CalendarPanel({
     <div className="border-l-[5px] border-l-sand">
       <div className="flex h-10 px-2">
         <button type="button" aria-label="Previous year" className={headerButtonClass} onClick={() => superStep(-1)}>
-          <ChevronsLeft className="size-3.5" strokeWidth={2.25} />
+          <ChevronLeft className="size-3" />
+          <ChevronLeft className="-ml-2 size-3" />
         </button>
         {view === "date" && (
           <button type="button" aria-label="Previous month" className={headerButtonClass} onClick={() => onMonthChange(addMonths(month, -1))}>
-            <ChevronLeft className="size-3.5" strokeWidth={2.25} />
+            <ChevronLeft className="size-3" />
           </button>
         )}
         <div className="flex-auto text-center leading-10 font-semibold">
@@ -60,11 +61,12 @@ function CalendarPanel({
         </div>
         {view === "date" && (
           <button type="button" aria-label="Next month" className={headerButtonClass} onClick={() => onMonthChange(addMonths(month, 1))}>
-            <ChevronRight className="size-3.5" strokeWidth={2.25} />
+            <ChevronRight className="size-3" />
           </button>
         )}
         <button type="button" aria-label="Next year" className={headerButtonClass} onClick={() => superStep(1)}>
-          <ChevronsRight className="size-3.5" strokeWidth={2.25} />
+          <ChevronRight className="size-3" />
+          <ChevronRight className="-ml-2 size-3" />
         </button>
       </div>
 
@@ -215,6 +217,7 @@ function DatePicker({
               aria-label="Clear date"
               className="absolute right-[11px] hidden group-hover:flex"
               onClick={() => onChange(undefined)}
+              size="lg"
             />
           )}
         </div>

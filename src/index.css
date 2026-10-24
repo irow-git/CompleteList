@@ -12,6 +12,7 @@
   --color-error: #ff4d4f;
   --color-error-bg: #efd7d1;
   --color-highlight: cyan;
+  --color-dirty-white: #F0F0F0;
 
   /* Semantic tokens used by shadcn/ui components in src/components/ui */
   --color-foreground: #000000e0;
@@ -26,7 +27,6 @@
   --color-popover-foreground: #000000e0;
   --color-accent: var(--color-ink);
   --color-accent-foreground: #ffffff;
-  --color-ring: var(--color-ink);
 }
 
 @layer base {

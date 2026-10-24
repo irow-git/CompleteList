@@ -1,10 +1,10 @@
 import * as React from "react"
-import { X } from "lucide-react"
+import { Close } from "pixelarticons/react"
 
 import { cn } from "@/lib/utils"
 
 // Small "×" used to remove a tag or clear a field's value
-function RemoveButton({ className, ...props }: React.ComponentPropsWithoutRef<"button">) {
+function RemoveButton({ className,size, ...props }: React.ComponentPropsWithoutRef<"button"> & {size: 'sm' | 'lg'}) {
   return (
     <button
       type="button"
@@ -18,7 +18,7 @@ function RemoveButton({ className, ...props }: React.ComponentPropsWithoutRef<"b
       onMouseDown={(event) => event.preventDefault()}
       {...props}
     >
-      <X className="size-3.5 shrink-0" strokeWidth={2} />
+      <Close className={`size-${size === 'sm' ? 3 : 6} shrink-0`} />
     </button>
   )
 }
