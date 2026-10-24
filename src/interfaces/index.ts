@@ -2,8 +2,8 @@
 export interface GameDetails {
   title: string;
   completion: string;
-  release_date?: string;
-  last_completion?: string;
+  release_date: string | null;
+  last_completion: string | null;
   platform: string[];
   tags: string[];
   original_copy: boolean;
@@ -12,10 +12,17 @@ export interface GameDetails {
   comment: string;
 }
 
-export interface IGame extends GameDetails {
+export interface IDLC extends GameDetails {
   id: string;
-  DLCs: GameDetails[];
 }
 
-// What gets passed in when creating a game; the storage layer assigns the id
-export type NewGame = Omit<IGame, "id">;
+export interface IGame extends GameDetails {
+  id: string;
+  DLCs: IDLC[];
+}
+
+// What gets passed in when creating a game; the database assigns the ids
+export type NewGame = GameDetails & { DLCs: GameDetails[] };
+
+// What gets passed in when saving an existing game. DLCs without an id are new; existing DLCs left out are deleted
+export type GameUpdate = GameDetails & { id: string; DLCs: (GameDetails & { id?: string })[] };

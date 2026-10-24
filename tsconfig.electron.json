@@ -12,5 +12,5 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["electron"]
+  "include": ["electron", "drizzle.config.ts"]
 }

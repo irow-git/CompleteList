@@ -6,6 +6,12 @@ const api: ElectronApi = {
   app: {
     version: () => ipcRenderer.invoke("app:version"),
   },
+  games: {
+    list: () => ipcRenderer.invoke("games:list"),
+    create: (game) => ipcRenderer.invoke("games:create", game),
+    update: (game) => ipcRenderer.invoke("games:update", game),
+    remove: (id) => ipcRenderer.invoke("games:remove", id),
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

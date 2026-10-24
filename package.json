@@ -5,9 +5,11 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-table": "^8.21.3",
+    "better-sqlite3": "^13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "drizzle-orm": "^0.45.4",
     "firebase": "^9.15.0",
     "lucide-react": "^1.61.0",
     "radix-ui": "^1.8.1",
@@ -27,6 +29,7 @@
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/jest": "^27.5.2",
     "@types/minimatch": "^6.0.0",
     "@types/node": "^20.11.0",
@@ -34,6 +37,7 @@
     "@types/react-dom": "^18.0.10",
     "@types/uuid": "^9.0.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "drizzle-kit": "^0.31.11",
     "electron": "^45.0.0",
     "electron-builder": "^26.18.0",
     "jsdom": "^24.0.0",
@@ -52,7 +56,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "electron:build": "yarn build && electron-builder"
+    "electron:build": "yarn build && electron-builder",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio"
   },
   "build": {
     "extends": null,
@@ -60,7 +66,8 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "package.json"
+      "package.json",
+      "drizzle/**/*"
     ],
     "directories": {
       "output": "release",

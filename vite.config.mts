@@ -15,7 +15,11 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       // Builds electron/ into dist-electron/ and launches Electron once the dev server is up
       !web && electron({
-        main: { entry: 'electron/main.ts' },
+        main: {
+          entry: 'electron/main.ts',
+          // Native module: loaded from node_modules at runtime instead of being bundled
+          vite: { build: { rollupOptions: { external: ['better-sqlite3'] } } },
+        },
         preload: { input: 'electron/preload.ts' },
       }),
     ],

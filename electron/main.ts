@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
+import { Db, openDatabase } from "./db";
+import { createGame, listGames, removeGame, updateGame } from "./db/games";
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -30,12 +32,17 @@ function createWindow() {
   }
 }
 
-function registerIpcHandlers() {
+function registerIpcHandlers(db: Db) {
   ipcMain.handle("app:version", () => app.getVersion());
+
+  ipcMain.handle("games:list", () => listGames(db));
+  ipcMain.handle("games:create", (_event, game) => createGame(db, game));
+  ipcMain.handle("games:update", (_event, game) => updateGame(db, game));
+  ipcMain.handle("games:remove", (_event, id) => removeGame(db, id));
 }
 
 app.whenReady().then(() => {
-  registerIpcHandlers();
+  registerIpcHandlers(openDatabase());
   createWindow();
 
   app.on("activate", () => {
