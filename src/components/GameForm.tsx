@@ -6,12 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
-import { GameDetails, NewGame } from "../interfaces";
+import { GameDetails, GameUpdate } from "../interfaces";
 
-// The form edits exactly what gets stored, so submitted values can go straight to the database (AddGameFormValues = NewGame)
+// The form edits exactly what gets stored, so submitted values can go straight to the database
 export type GameFormValues = GameDetails;
 
-export type AddGameFormValues = NewGame;
+// DLCs being edited keep their id, so the update can tell existing DLCs from new ones
+export type AddGameFormValues = Omit<GameUpdate, "id">;
 
 export const emptyGameFormValues: GameFormValues = {
   title: "",

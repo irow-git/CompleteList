@@ -10,6 +10,7 @@ export interface ElectronApi {
   };
   games: {
     list(request: PageRequest): Promise<GamePage>;
+    get(id: string): Promise<IGame | null>;
     create(game: NewGame): Promise<IGame>;
     update(game: GameUpdate): Promise<IGame>;
     remove(id: string): Promise<void>;

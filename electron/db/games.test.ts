@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type { GameDetails } from "../../src/interfaces";
 import type { Db } from ".";
-import { createGame, listGames, removeGame, updateGame } from "./games";
+import { createGame, getGame, listGames, removeGame, updateGame } from "./games";
 import * as schema from "./schema";
 
 const details = (title: string): GameDetails => ({
@@ -100,6 +100,15 @@ test("remove soft-deletes the game and its DLCs", () => {
   expect(listGames(db, firstPage).games).toEqual([]);
   expect(metadataOf(db, game.id).deleted_at).toBeInstanceOf(Date);
   expect(metadataOf(db, game.DLCs[0].id).deleted_at).toBeInstanceOf(Date);
+});
+
+test("gets a base game with its DLCs; DLC ids and deleted games give null", () => {
+  const game = createGame(db, { ...details("Witcher 3"), DLCs: [details("Blood and Wine")] });
+
+  expect(getGame(db, game.id)).toEqual(game);
+  expect(getGame(db, game.DLCs[0].id)).toBeNull();
+  removeGame(db, game.id);
+  expect(getGame(db, game.id)).toBeNull();
 });
 
 test("updating a missing game throws", () => {

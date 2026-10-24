@@ -86,6 +86,12 @@ export function listGames(db: Db, { page, pageSize }: PageRequest): GamePage {
   return { games: bases.map((base) => toGame(base, dlcsByParent.get(base.id) ?? [])), total };
 }
 
+// A base game with its DLCs, or null if it doesn't exist (or was deleted)
+export function getGame(db: Db, id: string): IGame | null {
+  const [base] = liveRows(db, and(eq(games.id, id), isNull(games.parent_id)));
+  return base ? toGame(base, liveRows(db, eq(games.parent_id, id))) : null;
+}
+
 export function createGame(db: Db, game: NewGame): IGame {
   return db.transaction((tx) => {
     const now = new Date();
