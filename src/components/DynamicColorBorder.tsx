@@ -35,7 +35,7 @@ export const createBorderStyling = (): BorderStyling => {
   let thirdColorPercent: number[] = [];
   let horizontalColorPercent: number[] = [];
 
-  const colorArrHorizontal = ["#ded7d1", "#d1cac5", "#555559", "#7e768a"];
+  const colorArrHorizontal = ["#ded7d1", "#f4f4f4", "#edebeb", "#d1cac5"];
 
   firstColorPercent[0] = getRandomInt(10, 40);
   secondColorPercent[0] = getRandomInt(firstColorPercent[0], 60);
@@ -71,7 +71,7 @@ export const DynamicColorBorder: React.FC<{
 }> = ({ children, styling }) => {
   return (
     <div
-      className="DLC-top-border"
+      className="DLC-top-border bg-popover"
       style={{
         marginTop: 12,
         borderImage: `linear-gradient(to right,

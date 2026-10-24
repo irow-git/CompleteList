@@ -12,7 +12,7 @@ type FormItemProps = {
 // Label + control + a 24px strip below it that doubles as the error line, so errors don't shift the layout
 export const FormItem: React.FC<FormItemProps> = ({ label, htmlFor, required, error, className, children }) => {
   return (
-    <div className={cn("mb-6", className)}>
+    <div className={cn("mb-2", className)}>
       {label && (
         <div className="pb-2 leading-[22px]">
           <label
@@ -30,7 +30,7 @@ export const FormItem: React.FC<FormItemProps> = ({ label, htmlFor, required, er
       <div className="relative flex min-h-8 items-center">
         <div className="min-w-0 flex-auto drop-shadow-[0px_1px_1px_black]">{children}</div>
         {error && (
-          <div role="alert" className="absolute inset-x-0 top-full text-center leading-[22px] text-error">
+          <div role="alert" className="absolute inset-x-0 top-full text-left ml-[18px] leading-[22px] text-error">
             {error}
           </div>
         )}

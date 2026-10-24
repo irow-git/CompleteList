@@ -45,7 +45,7 @@ export const GameEditor: React.FC<{
                     <div className="relative -top-5 right-16 size-0 drop-shadow-[0px_1px_1px_black]">
                       <Button
                         size="sm"
-                        className="form-control-clip-small absolute"
+                        className="form-control-clip-small absolute text-black"
                         style={{ backgroundColor: borderStylings[index].colorsHorizontal[3] }}
                         onClick={() => removeDLCField(index)}
                       >
@@ -64,7 +64,7 @@ export const GameEditor: React.FC<{
             </FormItem>
           </div>
 
-          <FormItem className="-mt-5">
+          <FormItem>
             <Button className="form-control-clip-large w-[200px]" size="lg" type="submit">
               Submit
             </Button>
