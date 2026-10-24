@@ -6,18 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
+import { GameDetails } from "../interfaces";
 
-export type GameFormValues = {
-  title: string;
-  completion: string;
+// Same fields as the stored game, but the date pickers work with Date objects instead of ISO strings
+export type GameFormValues = Omit<GameDetails, "release_date" | "last_completion"> & {
   release_date?: Date;
   last_completion?: Date;
-  platform: string[];
-  tags: string[];
-  original_copy: boolean;
-  free_to_play: boolean;
-  service: boolean;
-  comment: string;
 };
 
 export type AddGameFormValues = GameFormValues & { DLCs: GameFormValues[] };

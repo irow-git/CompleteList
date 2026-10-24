@@ -1,5 +1,4 @@
 import React, { Fragment } from "react";
-import { useSelector } from "react-redux";
 import {
   ColumnDef,
   flexRender,
@@ -9,7 +8,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { IGame } from "../interfaces";
-import { State } from "../store/reducers/rootReducer";
+import { useGamesStore } from "../store/gamesStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -108,9 +107,7 @@ const columns: ColumnDef<GameRow>[] = [
 
 const TableView: React.FC = () => {
 
-  const gamesStore: GameRow[] = useSelector(
-    (state: State) => state.gameReducer.games
-  );
+  const gamesStore: GameRow[] = useGamesStore((state) => state.games);
 
   const table = useReactTable({
     data: gamesStore,
