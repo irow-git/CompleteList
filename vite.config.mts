@@ -17,8 +17,9 @@ export default defineConfig(({ mode }) => {
       !web && electron({
         main: {
           entry: 'electron/main.ts',
-          // Native module: loaded from node_modules at runtime instead of being bundled
-          vite: { build: { rollupOptions: { external: ['better-sqlite3'] } } },
+          // Loaded from node_modules at runtime instead of being bundled: better-sqlite3 is a native module, and
+          // Firebase then resolves its Node builds
+          vite: { build: { rollupOptions: { external: ['better-sqlite3', /^@?firebase(\/|$)/] } } },
         },
         preload: { input: 'electron/preload.ts' },
       }),

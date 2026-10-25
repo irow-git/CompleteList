@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
 import { Db, openDatabase } from "./db";
 import { createGame, getGame, listGames, removeGame, updateGame } from "./db/games";
+import { createSyncService } from "./sync";
+import { clearFirebaseSettings, getFirebaseSettings, saveFirebaseSettings } from "./sync/settings";
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -40,6 +42,14 @@ function registerIpcHandlers(db: Db) {
   ipcMain.handle("games:create", (_event, game) => createGame(db, game));
   ipcMain.handle("games:update", (_event, game) => updateGame(db, game));
   ipcMain.handle("games:remove", (_event, id) => removeGame(db, id));
+
+  ipcMain.handle("settings:getFirebase", () => getFirebaseSettings());
+  ipcMain.handle("settings:saveFirebase", (_event, input) => saveFirebaseSettings(db, input));
+  ipcMain.handle("settings:clearFirebase", () => clearFirebaseSettings(db));
+
+  const sync = createSyncService(db);
+  ipcMain.handle("sync:status", () => sync.status());
+  ipcMain.handle("sync:run", () => sync.run());
 }
 
 app.whenReady().then(() => {

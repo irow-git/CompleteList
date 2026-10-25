@@ -18,7 +18,7 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type GameRow = typeof games.$inferSelect;
 
 // Copies only the editable fields, so stray keys coming over IPC (id, DLCs, parent_id...) never reach an insert/update
-const detailsOf = (game: GameDetails): GameDetails => ({
+export const detailsOf = (game: GameDetails): GameDetails => ({
   title: game.title,
   completion: game.completion,
   release_date: game.release_date,
@@ -39,8 +39,15 @@ const toGame = (base: GameRow, dlcs: GameRow[]): IGame => ({
   DLCs: dlcs.map((dlc) => ({ id: dlc.id, ...detailsOf(dlc) })),
 });
 
-// Case-insensitive by title, with the id as a tiebreaker so pages never overlap
-const listOrder = [sql`${games.title} collate nocase`, games.id];
+// Titles sort without a leading "The " or "A " ("The Witcher 3" under W), ignoring case. LIKE is case-insensitive
+const sortableTitle = sql`(case
+  when ${games.title} like 'the %' then substr(${games.title}, 5)
+  when ${games.title} like 'a %' then substr(${games.title}, 3)
+  else ${games.title}
+end) collate nocase`;
+
+// By title, with the id as a tiebreaker so pages never overlap
+const listOrder = [sortableTitle, games.id];
 
 // What each sortable column orders by
 const sortExpressions: Record<SortableField, SQL> = {
@@ -48,17 +55,24 @@ const sortExpressions: Record<SortableField, SQL> = {
   // Service games show "Service" in this column, so they sort after the plain yes/no values
   original_copy: sql`${games.service} * 2 + ${games.original_copy}`,
   free_to_play: sql`${games.free_to_play}`,
-  title: sql`${games.title} collate nocase`,
+  title: sortableTitle,
   completion: sql`${games.completion} collate nocase`,
   release_date: sql`${games.release_date}`,
   last_completion: sql`${games.last_completion}`,
 };
 
-// Empty values (missing dates) go last in both directions; ties keep the default title order
-const orderFor = (sort?: GameSort | null) => {
-  if (!sort || !(sort.field in sortExpressions)) return listOrder;
-  const direction = sql.raw(sort.direction === "desc" ? "desc" : "asc");
-  return [sql`${sortExpressions[sort.field]} ${direction} nulls last`, ...listOrder];
+// Each sort in turn, then the default title order for whatever is still tied. Empty values (missing dates) go last
+// in both directions. Unknown or repeated fields are ignored, since the sorts arrive over IPC
+const orderFor = (sorts: GameSort[] = []) => {
+  const fields = new Set<SortableField>();
+  const order: SQL[] = [];
+  for (const sort of sorts) {
+    if (!(sort.field in sortExpressions) || fields.has(sort.field)) continue;
+    fields.add(sort.field);
+    const direction = sql.raw(sort.direction === "desc" ? "desc" : "asc");
+    order.push(sql`${sortExpressions[sort.field]} ${direction} nulls last`);
+  }
+  return [...order, ...listOrder];
 };
 
 const isLive = isNull(gameMetadata.deleted_at);
@@ -147,7 +161,7 @@ function searchGameIds(db: Db, search: string): string[] {
 export function listGames(db: Db, { page, pageSize, sort, search }: PageRequest): GamePage {
   const query = search?.trim();
   const matchingIds = query ? searchGameIds(db, query) : null;
-  if (matchingIds?.length === 0) return { games: [], total: 0 };
+  if (matchingIds?.length === 0) return { games: [], total: 0, counts: countGames(db) };
 
   const isListed = and(isLive, isNull(games.parent_id), matchingIds ? inArray(games.id, matchingIds) : undefined);
   const selectBases = (where: SQL | undefined) =>
@@ -155,7 +169,7 @@ export function listGames(db: Db, { page, pageSize, sort, search }: PageRequest)
 
   let bases: GameRow[];
   let total: number;
-  if (matchingIds && !sort) {
+  if (matchingIds && !sort?.length) {
     // Search results keep their relevance order: page through the ranked ids, then load those rows
     total = matchingIds.length;
     const pageIds = matchingIds.slice(page * pageSize, (page + 1) * pageSize);
@@ -179,7 +193,21 @@ export function listGames(db: Db, { page, pageSize, sort, search }: PageRequest)
   const dlcsByParent = new Map<string, GameRow[]>();
   for (const dlc of dlcs) dlcsByParent.set(dlc.parent_id!, [...(dlcsByParent.get(dlc.parent_id!) ?? []), dlc]);
 
-  return { games: bases.map((base) => toGame(base, dlcsByParent.get(base.id) ?? [])), total };
+  return { games: bases.map((base) => toGame(base, dlcsByParent.get(base.id) ?? [])), total, counts: countGames(db) };
+}
+
+// Live base games and DLCs in the whole collection
+function countGames(db: Db) {
+  const { games: gameCount, dlcs } = db
+    .select({
+      games: sql<number>`count(*) filter (where ${games.parent_id} is null)`,
+      dlcs: sql<number>`count(*) filter (where ${games.parent_id} is not null)`,
+    })
+    .from(games)
+    .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
+    .where(isLive)
+    .get()!;
+  return { games: gameCount, dlcs };
 }
 
 // A base game with its DLCs, or null if it doesn't exist (or was deleted)

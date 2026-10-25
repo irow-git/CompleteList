@@ -13,6 +13,15 @@ const api: ElectronApi = {
     update: (game) => ipcRenderer.invoke("games:update", game),
     remove: (id) => ipcRenderer.invoke("games:remove", id),
   },
+  settings: {
+    getFirebase: () => ipcRenderer.invoke("settings:getFirebase"),
+    saveFirebase: (input) => ipcRenderer.invoke("settings:saveFirebase", input),
+    clearFirebase: () => ipcRenderer.invoke("settings:clearFirebase"),
+  },
+  sync: {
+    status: () => ipcRenderer.invoke("sync:status"),
+    run: () => ipcRenderer.invoke("sync:run"),
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

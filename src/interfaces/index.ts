@@ -45,8 +45,9 @@ export interface GameSort {
 export interface PageRequest {
   page: number; // 0-based
   pageSize: number;
-  // Without a sort, games are listed by title, or by relevance while searching
-  sort?: GameSort | null;
+  // Applied in order: the first sort decides, the next breaks its ties, and so on.
+  // Without any, games are listed by title, or by relevance while searching
+  sort?: GameSort[];
   // Fuzzy search over title, platform, tags, completion, comment and DLC titles
   search?: string;
 }
@@ -54,4 +55,42 @@ export interface PageRequest {
 export interface GamePage {
   games: IGame[];
   total: number; // base games across all pages (matching ones, while searching)
+  // The whole collection, regardless of search
+  counts: { games: number; dlcs: number };
+}
+
+// The web app config from the Firebase console (Project settings → Your apps)
+export interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  appId: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+}
+
+// What the settings screen gets back. The password never leaves the main process
+export interface FirebaseSettings {
+  config: FirebaseConfig;
+  email: string;
+}
+
+export interface FirebaseSettingsInput extends FirebaseSettings {
+  // Left out to keep the stored password (e.g. when only the config changes)
+  password?: string;
+  // Create the account in the project's Firebase Auth instead of signing in to an existing one
+  createAccount?: boolean;
+}
+
+export interface SyncStatus {
+  configured: boolean;
+  lastSyncedAt: Date | null;
+  // Games and DLCs changed locally since the last sync
+  pendingChanges: number;
+}
+
+export interface SyncResult {
+  pushed: number;
+  pulled: number;
+  syncedAt: Date;
 }

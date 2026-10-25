@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useEffect, useMemo } from "react";
 import {
   createColumnHelper,
   flexRender,
@@ -8,39 +8,18 @@ import {
   type Header,
   type SortingState,
 } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
 import { IDLC, IGame, SortableField } from "../interfaces";
 import { useShallow } from "zustand/react/shallow";
 import { useGamesStore } from "../store/gamesStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { RemoveButton } from "@/components/ui/remove-button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import {
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronsVertical,
-  Close,
-  Minus,
-  Pencil,
-  Plus,
-  Search,
-  Trash,
-} from "pixelarticons/react";
+import { Check, ChevronDown, ChevronUp, ChevronsVertical, Close, Minus, Plus } from "pixelarticons/react";
 import { formatDay } from "@/lib/dates";
+import { Panel } from "@/layout/Panel";
+import { GameActions } from "@/components/games/GameActions";
+import { GameListToolbar } from "@/components/games/GameListToolbar";
+import { Pagination } from "@/components/games/Pagination";
+import { FIELD_LABELS } from "@/components/games/fields";
 
 // How plain values show up in cells; a column that needs something else sets its own `cell`
 const renderValue = (value: unknown): React.ReactNode => {
@@ -60,60 +39,25 @@ const headRowClass = "bg-dirty-white hover:bg-dirty-white";
 const headClass =
   "relative h-auto p-4 text-center font-semibold whitespace-normal not-last:before:absolute not-last:before:top-1/2 not-last:before:right-0 not-last:before:h-[1.6em] not-last:before:w-px not-last:before:-translate-y-1/2 not-last:before:bg-sand";
 const cellClass = "p-4 text-left whitespace-normal";
-const iconButtonClass =
-  "inline-flex size-[26px] cursor-pointer items-center justify-center bg-white leading-none hover:bg-sand [&_svg]:size-6";
-
 const EXPAND_WIDTH = 48;
 const ACTIONS_WIDTH = 112;
-
-const GameActions: React.FC<{ game: IGame }> = ({ game }) => {
-  const removeGame = useGamesStore((state) => state.remove);
-  const dlcCount = game.DLCs.length;
-
-  return (
-    <span className="inline-flex gap-2">
-      <Link to={`/edit/${game.id}`} className={iconButtonClass} aria-label={`Edit ${game.title}`} title="Edit">
-        <Pencil className="size-6 shrink-0" />
-      </Link>
-      <AlertDialog>
-        <AlertDialogTrigger className={cn(iconButtonClass, "hover:border-destructive hover:text-destructive")} aria-label={`Delete ${game.title}`} title="Delete">
-          <Trash className="size-6 shrink-0" />
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogTitle>Delete {game.title}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {dlcCount > 0
-              ? `Its ${dlcCount} DLC${dlcCount === 1 ? "" : "s"} will be deleted too.`
-              : "The game will be removed from your list."}
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive" onClick={() => removeGame(game.id)}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </span>
-  );
-};
 
 // The helper checks accessor keys against IGame, so a renamed or misspelled field is a type error
 const columnHelper = createColumnHelper<IGame>();
 
 // The game's own fields, shown for base games and, in the expanded row, for their DLCs
 const dataColumns = [
-  columnHelper.accessor("platform", { header: "Platform", size: 150 }),
+  columnHelper.accessor("platform", { header: FIELD_LABELS.platform, size: 150 }),
   columnHelper.accessor("original_copy", {
-    header: "Original Copy",
+    header: FIELD_LABELS.original_copy,
     size: 140,
     cell: ({ row, getValue }) => (row.original.service ? <p className="text-green-700">Service</p> : renderValue(getValue()))
   }),
-  columnHelper.accessor("free_to_play", { header: "Free to play", size: 140 }),
-  columnHelper.accessor("title", { header: "Title", minSize: 132 }),
-  columnHelper.accessor("completion", { header: "Completion Type", minSize: 132 }),
-  columnHelper.accessor("release_date", { header: "Release Date", minSize: 132 }),
-  columnHelper.accessor("last_completion", { header: "Last Completion", minSize: 132 }),
+  columnHelper.accessor("free_to_play", { header: FIELD_LABELS.free_to_play, size: 140 }),
+  columnHelper.accessor("title", { header: FIELD_LABELS.title, minSize: 160 }),
+  columnHelper.accessor("completion", { header: FIELD_LABELS.completion, minSize: 160 }),
+  columnHelper.accessor("release_date", { header: FIELD_LABELS.release_date, minSize: 160 }),
+  columnHelper.accessor("last_completion", { header: FIELD_LABELS.last_completion, minSize: 160 }),
 ];
 
 const columns = [
@@ -198,8 +142,9 @@ const DlcTable: React.FC<{ dlcs: IDLC[] }> = ({ dlcs }) => {
   );
 };
 
-// A sortable header is a button that cycles ascending → descending → unsorted; the sorting itself happens in the database
-const HeaderContent: React.FC<{ header: Header<IGame, unknown> }> = ({ header }) => {
+// A sortable header is a button that cycles ascending → descending → unsorted; shift-click adds the column to the
+// current sort instead of replacing it. The sorting itself happens in the database
+const HeaderContent: React.FC<{ header: Header<IGame, unknown>; sortCount: number }> = ({ header, sortCount }) => {
   const label = flexRender(header.column.columnDef.header, header.getContext());
   if (!header.column.getCanSort()) return label;
 
@@ -208,63 +153,29 @@ const HeaderContent: React.FC<{ header: Header<IGame, unknown> }> = ({ header })
   return (
     <button
       type="button"
+      title="Shift-click to sort by several columns"
       onClick={header.column.getToggleSortingHandler()}
       className="inline-flex cursor-pointer items-center gap-1 font-semibold uppercase hover:text-ink"
     >
       {label}
       <SortIcon className={cn("size-6 shrink-0", !sorted && "opacity-30")} />
+      {sorted && sortCount > 1 && <span className="font-pixel text-xs">{header.column.getSortIndex() + 1}</span>}
     </button>
-  );
-};
-
-const SEARCH_DELAY_MS = 250;
-
-const SearchBox: React.FC = () => {
-  const { search, setSearch } = useGamesStore(useShallow(({ search, setSearch }) => ({ search, setSearch })));
-  const [text, setText] = useState(search);
-
-  // Search once typing pauses rather than on every keystroke
-  useEffect(() => {
-    if (text === search) return;
-    const timer = setTimeout(() => setSearch(text), SEARCH_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [text, search, setSearch]);
-
-  return (
-    <div className="mb-4 flex justify-end">
-      <div className="relative w-[360px] drop-shadow-[0px_1px_1px_black]">
-        {/* z-10: the input's clip-path puts it on its own layer, which would otherwise paint over the icon */}
-        <Search className="pointer-events-none absolute top-1/2 left-4 z-10 size-6 -translate-y-1/2 text-black/45" />
-        <Input
-          type="search"
-          size="lg"
-          aria-label="Search games"
-          placeholder="Search games"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => event.key === "Escape" && setText("")}
-          className="form-control-clip-large pr-10 pl-12 [&::-webkit-search-cancel-button]:hidden"
-        />
-        {text && (
-          <RemoveButton
-            size="lg"
-            aria-label="Clear search"
-            className="absolute top-1/2 right-4 -translate-y-1/2"
-            onClick={() => setText("")}
-          />
-        )}
-      </div>
-    </div>
   );
 };
 
 const TableView: React.FC = () => {
 
-  const { games, page, pageSize, total, sort, search, loadPage, setSort } = useGamesStore(
-    useShallow(({ games, page, pageSize, total, sort, search, loadPage, setSort }) =>
-      ({ games, page, pageSize, total, sort, search, loadPage, setSort }))
+  const { games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort } = useGamesStore(
+    useShallow(({ games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort }) =>
+      ({ games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort }))
   );
-  const sorting: SortingState = sort ? [{ id: sort.field, desc: sort.direction === "desc" }] : [];
+  const sorting: SortingState = sort.map(({ field, direction }) => ({ id: field, desc: direction === "desc" }));
+
+  // Coming from the card view the store holds several scrolled-through pages; the table shows one at a time
+  useEffect(() => {
+    if (infinite || status === "idle") loadPage(0);
+  }, [infinite, status, loadPage]);
 
   // Paging, sorting and search happen in the database: the store holds one page, and changes ask it for another
   const table = useReactTable({
@@ -282,8 +193,8 @@ const TableView: React.FC = () => {
     rowCount: total,
     state: { pagination: { pageIndex: page, pageSize }, sorting },
     onSortingChange: (updater) => {
-      const [next] = typeof updater === "function" ? updater(sorting) : updater;
-      setSort(next ? { field: next.id as SortableField, direction: next.desc ? "desc" : "asc" } : null);
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      setSort(next.map(({ id, desc }) => ({ field: id as SortableField, direction: desc ? "desc" : "asc" })));
     },
     onPaginationChange: (updater) => {
       const next = typeof updater === "function" ? updater({ pageIndex: page, pageSize }) : updater;
@@ -291,11 +202,10 @@ const TableView: React.FC = () => {
     },
   });
 
-  const { pageIndex } = table.getState().pagination;
-
   return (
-    <div className="font-chava">
-      <SearchBox />
+    <>
+      <GameListToolbar />
+      <Panel className="font-chava">
       <Table className={tableClass} style={{ minWidth: tableMinWidth(columns) }}>
         <colgroup>
           {columns.map((column, index) => (
@@ -313,7 +223,7 @@ const TableView: React.FC = () => {
                   }
                   className={cn(headClass, header.column.id === "expand" && "before:hidden")}
                 >
-                  <HeaderContent header={header} />
+                  <HeaderContent header={header} sortCount={sorting.length} />
                 </TableHead>
               ))}
             </TableRow>
@@ -349,43 +259,9 @@ const TableView: React.FC = () => {
         </TableBody>
       </Table>
 
-      {table.getPageCount() > 0 && (
-        <nav aria-label="Pagination" className="my-4 flex items-center justify-end gap-2 font-pixel text-sm">
-          <button
-            type="button"
-            className="size-8 cursor-pointer disabled:cursor-not-allowed disabled:text-gray-400"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="size-6" />
-          </button>
-          {Array.from({ length: table.getPageCount() }, (_, page) => (
-            <button
-              key={page}
-              type="button"
-              aria-current={page === pageIndex ? "page" : undefined}
-              onClick={() => table.setPageIndex(page)}
-              className={cn(
-                "size-8 cursor-pointer text-[20px]",
-                page === pageIndex ? "border-be-3 border-be-gray-400 text-ink" : "hover:bg-muted"
-              )}
-            >
-              {page + 1}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="size-8 cursor-pointer disabled:cursor-not-allowed disabled:text-gray-400"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            aria-label="Next page"
-          >
-            <ChevronRight className="size-6" />
-          </button>
-        </nav>
-      )}
-    </div>
+      <Pagination />
+      </Panel>
+    </>
   );
 };
 

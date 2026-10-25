@@ -10,7 +10,7 @@
     "cn": "^0.5.0",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.4",
-    "firebase": "^9.15.0",
+    "firebase": "^12.19.0",
     "fuse.js": "^7.5.0",
     "pixelarticons": "^2.4.2",
     "radix-ui": "^1.8.1",

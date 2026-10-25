@@ -80,10 +80,44 @@ test("sorts by any column across pages, with empty dates last in both directions
     listGames(db, { page: 0, pageSize, sort }).games.map((game) => game.title);
 
   // Destiny 2 has the default 2015 release date from details()
-  expect(titles({ field: "release_date", direction: "asc" })).toEqual(["Antichamber", "Destiny 2", "Celeste", "Braid"]);
-  expect(titles({ field: "release_date", direction: "desc" })).toEqual(["Celeste", "Destiny 2", "Antichamber", "Braid"]);
-  expect(titles({ field: "title", direction: "desc" }, 2)).toEqual(["Destiny 2", "Celeste"]);
-  expect(titles({ field: "original_copy", direction: "desc" })[0]).toBe("Destiny 2");
+  expect(titles([{ field: "release_date", direction: "asc" }])).toEqual(["Antichamber", "Destiny 2", "Celeste", "Braid"]);
+  expect(titles([{ field: "release_date", direction: "desc" }])).toEqual(["Celeste", "Destiny 2", "Antichamber", "Braid"]);
+  expect(titles([{ field: "title", direction: "desc" }], 2)).toEqual(["Destiny 2", "Celeste"]);
+  expect(titles([{ field: "original_copy", direction: "desc" }])[0]).toBe("Destiny 2");
+});
+
+test("multiple sorts apply in order, each breaking the previous one's ties", () => {
+  createGame(db, { ...details("Celeste"), platform: ["Switch"], DLCs: [] });
+  createGame(db, { ...details("Braid"), platform: ["PC"], DLCs: [] });
+  createGame(db, { ...details("Antichamber"), platform: ["PC"], DLCs: [] });
+  createGame(db, { ...details("Dead Cells"), platform: ["Switch"], DLCs: [] });
+  const titles = (sort: Parameters<typeof listGames>[1]["sort"]) =>
+    listGames(db, { page: 0, pageSize: 25, sort }).games.map((game) => game.title);
+
+  expect(titles([{ field: "platform", direction: "desc" }, { field: "title", direction: "desc" }])).toEqual([
+    "Dead Cells",
+    "Celeste",
+    "Braid",
+    "Antichamber",
+  ]);
+  // A repeated field only counts once
+  expect(titles([{ field: "platform", direction: "asc" }, { field: "platform", direction: "desc" }])).toEqual([
+    "Antichamber",
+    "Braid",
+    "Celeste",
+    "Dead Cells",
+  ]);
+});
+
+test("counts cover the whole collection: live games and DLCs, regardless of search", () => {
+  createGame(db, { ...details("The Witcher 3"), DLCs: [details("Blood and Wine"), details("Hearts of Stone")] });
+  const removed = createGame(db, { ...details("Braid"), DLCs: [details("Braid DLC")] });
+  createGame(db, { ...details("Celeste"), DLCs: [] });
+  removeGame(db, removed.id);
+
+  expect(listGames(db, firstPage).counts).toEqual({ games: 2, dlcs: 2 });
+  expect(listGames(db, { ...firstPage, search: "celeste" }).counts).toEqual({ games: 2, dlcs: 2 });
+  expect(listGames(db, { ...firstPage, search: "zzzz" }).counts).toEqual({ games: 2, dlcs: 2 });
 });
 
 test("fuzzy search tolerates typos, matches DLC titles and other fields, and pages through the matches", () => {
@@ -103,8 +137,8 @@ test("fuzzy search tolerates typos, matches DLC titles and other fields, and pag
   expect(search("witcher pc")).toEqual(["The Witcher 3"]);
   expect(search("celeste ps5")).toEqual([]);
   // With a sort, the matches follow it instead of relevance
-  expect(search("platformer", { field: "title", direction: "desc" })).toEqual(["Hollow Knight", "Celeste"]);
-  expect(search("platformer", { field: "title", direction: "asc" })).toEqual(["Celeste", "Hollow Knight"]);
+  expect(search("platformer", [{ field: "title", direction: "desc" }])).toEqual(["Hollow Knight", "Celeste"]);
+  expect(search("platformer", [{ field: "title", direction: "asc" }])).toEqual(["Celeste", "Hollow Knight"]);
 });
 
 test("dates are searchable as shown in the table or as YYYY-MM-DD, and numbers match exactly", () => {
@@ -119,6 +153,17 @@ test("dates are searchable as shown in the table or as YYYY-MM-DD, and numbers m
   expect(search("2020-09-17")).toEqual(["Hades"]);
   // Not fuzzy: 2019 is one digit off 2018 and 2008 but matches nothing
   expect(search("2019")).toEqual([]);
+});
+
+test("title order ignores a leading \"The\" or \"A\"", () => {
+  for (const title of ["The Witcher 3", "A Short Hike", "Celeste", "the binding of isaac", "Theme Hospital", "Alan Wake"]) {
+    createGame(db, { ...details(title), DLCs: [] });
+  }
+  const titles = (sort?: Parameters<typeof listGames>[1]["sort"]) => listGames(db, { ...firstPage, sort }).games.map((game) => game.title);
+  const expected = ["Alan Wake", "the binding of isaac", "Celeste", "A Short Hike", "Theme Hospital", "The Witcher 3"];
+
+  expect(titles()).toEqual(expected);
+  expect(titles([{ field: "title", direction: "desc" }])).toEqual([...expected].reverse());
 });
 
 test("update adds, edits and removes DLCs, touching only changed rows", () => {

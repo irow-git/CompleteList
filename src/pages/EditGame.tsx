@@ -4,6 +4,7 @@ import { AddGameFormValues } from "../components/GameForm";
 import { GameEditor } from "../components/GameEditor";
 import { IGame } from "../interfaces";
 import { useGamesStore } from "@/store/gamesStore";
+import { Panel } from "@/layout/Panel";
 
 const EditGame: React.FC = () => {
   const { id = "" } = useParams();
@@ -24,10 +25,12 @@ const EditGame: React.FC = () => {
     });
   };
 
-  if (game === undefined) return null;
-  if (game === null) return <div className="p-5 text-center font-pixel text-sm text-black/45">Game not found</div>;
-
-  return <GameEditor key={game.id} defaultValues={game} onSubmit={onFinish} />;
+  return (
+    <Panel>
+      {game === null && <div className="p-5 text-center font-pixel text-sm text-black/45">Game not found</div>}
+      {game && <GameEditor key={game.id} defaultValues={game} onSubmit={onFinish} />}
+    </Panel>
+  );
 };
 
 export default EditGame;

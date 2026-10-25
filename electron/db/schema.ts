@@ -39,3 +39,9 @@ export const gameMetadata = sqliteTable(
   },
   (table) => [index("game_metadata_dirty_idx").on(table.dirty)]
 );
+
+// Sync bookkeeping that isn't per game, e.g. the pull checkpoint and when the last sync finished
+export const syncState = sqliteTable("sync_state", {
+  key: text().primaryKey(),
+  value: text().notNull(),
+});
