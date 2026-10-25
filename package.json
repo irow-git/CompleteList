@@ -2,6 +2,8 @@
   "name": "complete-list",
   "version": "0.1.0",
   "private": true,
+  "license": "CC BY-NC 4.0",
+  "author": "irow-git",
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-table": "^8.21.3",
