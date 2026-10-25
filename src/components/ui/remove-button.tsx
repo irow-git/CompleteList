@@ -18,7 +18,7 @@ function RemoveButton({ className,size, ...props }: React.ComponentPropsWithoutR
       onMouseDown={(event) => event.preventDefault()}
       {...props}
     >
-      <Close className={`size-${size === 'sm' ? 3 : 6} shrink-0`} />
+      <Close className={`${size === 'sm' ? 'size-3' : 'size-6'} shrink-0`} />
     </button>
   )
 }

@@ -27,13 +27,31 @@ export type NewGame = GameDetails & { DLCs: GameDetails[] };
 // What gets passed in when saving an existing game. DLCs without an id are new; existing DLCs left out are deleted
 export type GameUpdate = GameDetails & { id: string; DLCs: (GameDetails & { id?: string })[] };
 
+export type SortableField =
+  | "platform"
+  | "original_copy"
+  | "free_to_play"
+  | "title"
+  | "completion"
+  | "release_date"
+  | "last_completion";
+
+export interface GameSort {
+  field: SortableField;
+  direction: "asc" | "desc";
+}
+
 // Lists page through base games only: DLCs come nested in their game and don't count towards pageSize or total
 export interface PageRequest {
   page: number; // 0-based
   pageSize: number;
+  // Without a sort, games are listed by title, or by relevance while searching
+  sort?: GameSort | null;
+  // Fuzzy search over title, platform, tags, completion, comment and DLC titles
+  search?: string;
 }
 
 export interface GamePage {
   games: IGame[];
-  total: number; // base games across all pages
+  total: number; // base games across all pages (matching ones, while searching)
 }

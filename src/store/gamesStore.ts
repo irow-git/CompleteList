@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { GameUpdate, IGame, NewGame } from "../interfaces";
+import { GameSort, GameUpdate, IGame, NewGame } from "../interfaces";
 
 export const PAGE_SIZE = 25;
 
@@ -10,11 +10,16 @@ interface GamesState {
   games: IGame[];
   page: number; // 0-based
   pageSize: number;
-  total: number; // base games across all pages
+  total: number; // base games across all pages (matching ones, while searching)
+  sort: GameSort | null;
+  search: string;
   status: LoadStatus;
   error?: string;
 
   loadPage(page: number): Promise<void>;
+  // Both go back to the first page, since the old page number means nothing in the new order
+  setSort(sort: GameSort | null): Promise<void>;
+  setSearch(search: string): Promise<void>;
   reload(): Promise<void>;
   add(game: NewGame): Promise<IGame>;
   update(game: GameUpdate): Promise<IGame>;
@@ -29,20 +34,22 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   page: 0,
   pageSize: PAGE_SIZE,
   total: 0,
+  sort: null,
+  search: "",
   status: "idle",
   error: undefined,
 
   loadPage: async (page) => {
     const request = ++latestRequest;
-    const { pageSize } = get();
+    const { pageSize, sort, search } = get();
     set({ status: "loading", error: undefined });
     try {
-      let result = await window.api.games.list({ page, pageSize });
+      let result = await window.api.games.list({ page, pageSize, sort, search });
       // After deletions the requested page can be past the end; fall back to the last one
       const lastPage = Math.max(0, Math.ceil(result.total / pageSize) - 1);
       if (page > lastPage) {
         page = lastPage;
-        result = await window.api.games.list({ page, pageSize });
+        result = await window.api.games.list({ page, pageSize, sort, search });
       }
       if (request !== latestRequest) return;
       set({ games: result.games, total: result.total, page, status: "ready" });
@@ -50,6 +57,16 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
       if (request !== latestRequest) return;
       set({ status: "error", error: String(error) });
     }
+  },
+
+  setSort: (sort) => {
+    set({ sort });
+    return get().loadPage(0);
+  },
+
+  setSearch: (search) => {
+    set({ search });
+    return get().loadPage(0);
   },
 
   // Changes re-read the current page rather than patching `games`: a new or renamed game can land on another page,
