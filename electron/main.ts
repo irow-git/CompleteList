@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import path from "node:path";
 import { Db, openDatabase } from "./db";
 import { createGame, getGame, listGames, removeGame, updateGame } from "./db/games";
@@ -20,13 +20,23 @@ function createWindow() {
     },
   });
 
-  // Links that try to open a new window go to the system browser instead
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://")) shell.openExternal(url);
     return { action: "deny" };
   });
 
-  // Set by vite-plugin-electron while `yarn dev` is running
+  win.webContents.on("context-menu", (_event, params) => {
+    const menu = Menu.buildFromTemplate([
+      {
+        label: "Inspect Element",
+        click: () => {
+          win.webContents.inspectElement(params.x, params.y);
+        },
+      },
+    ]);
+    menu.popup({ window: win });
+  });
+
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
