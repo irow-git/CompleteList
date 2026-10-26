@@ -21,6 +21,8 @@ const details = (title: string): GameDetails => ({
   service: false,
   comment: "",
   cover_image: null,
+  score: null,
+  hours: null,
 });
 
 const metadataOf = (db: Db, id: string) =>
@@ -214,6 +216,38 @@ test("ruler checkpoints follow the list's order: letters ignore The/A, years put
   expect(listCheckpoints(db, { kind: "letter", sort: [{ field: "title", direction: "asc" }], search: "witcher" })).toEqual([
     { label: "W", index: 0, count: 1 },
   ]);
+});
+
+test("scores are whole numbers from 1 to 100 and hours keep one decimal", () => {
+  const game = createGame(db, { ...details("Witcher 3"), score: 140, hours: 101.26, DLCs: [{ ...details("Blood and Wine"), score: 0.4, hours: -3 }] });
+
+  expect([game.score, game.hours]).toEqual([100, 101.3]);
+  expect([game.DLCs[0].score, game.DLCs[0].hours]).toEqual([1, null]);
+  // Left out, as by an older client, they're stored as none
+  const { score, hours, ...rest } = game;
+  expect(updateGame(db, rest as typeof game)).toMatchObject({ score: null, hours: null });
+});
+
+test("sorts and rules by score and hours, games without them last", () => {
+  const add = (title: string, score: number | null, hours: number | null) => createGame(db, { ...details(title), score, hours, DLCs: [] });
+  add("Braid", 91, 8);
+  add("Celeste", 100, 60);
+  add("Dota 2", 76, 9001);
+  add("Elden Ring", 96, 250);
+  add("Fez", null, null);
+  add("Gris", 72, 10.5);
+
+  const titles = (field: "score" | "hours", direction: "asc" | "desc") =>
+    listGames(db, { ...firstPage, sort: [{ field, direction }] }).games.map((game) => game.title);
+  expect(titles("score", "desc")).toEqual(["Celeste", "Elden Ring", "Braid", "Dota 2", "Gris", "Fez"]);
+  expect(titles("hours", "asc")).toEqual(["Braid", "Gris", "Celeste", "Elden Ring", "Dota 2", "Fez"]);
+
+  const ruler = (kind: "score" | "hours", direction: "asc" | "desc") =>
+    listCheckpoints(db, { kind, sort: [{ field: kind, direction }] }).map(({ label, count }) => `${label || "none"}×${count}`);
+  // 100 counts with the 90s
+  expect(ruler("score", "desc")).toEqual(["90×3", "70×2", "none×1"]);
+  // Each range is over its bound: 250 is still in 100–250, 10.5 is over 10
+  expect(ruler("hours", "asc")).toEqual(["0×1", "10×1", "50×1", "100×1", "9000×1", "none×1"]);
 });
 
 test("update adds, edits and removes DLCs, touching only changed rows", () => {

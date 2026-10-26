@@ -204,3 +204,34 @@ a:hover {
     0px calc(100% - 42px)
   );
 }
+
+/* Easter egg: a card glows in its cover's colour (--glow) once a lot of hours went into the game, a little over 100
+   and more over 500; over 9000 it's bright red and pulses (glowLevel in src/lib/hours.ts). Each keeps the black drop
+   shadow every card has */
+.card-glow-1 {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--glow) 55%, transparent)) drop-shadow(1px 2px 3px black);
+}
+
+.card-glow-2 {
+  filter: drop-shadow(0 0 5px var(--glow)) drop-shadow(0 0 16px color-mix(in srgb, var(--glow) 75%, transparent))
+    drop-shadow(1px 2px 3px black);
+}
+
+.card-glow-3 {
+  filter: drop-shadow(0 0 6px #ff2a2a) drop-shadow(0 0 16px #ff1a1a) drop-shadow(0 0 28px rgb(255 0 0 / 0.7))
+    drop-shadow(1px 2px 3px black);
+  animation: over-9000 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes over-9000 {
+  to {
+    filter: drop-shadow(0 0 10px #ff4040) drop-shadow(0 0 22px #ff1a1a) drop-shadow(0 0 40px rgb(255 0 0 / 0.85))
+      drop-shadow(1px 2px 3px black);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-glow-3 {
+    animation: none;
+  }
+}

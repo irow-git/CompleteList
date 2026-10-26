@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ImagePicker } from "./ImagePicker";
+import { ScoreInput } from "./ScoreInput";
+import { HoursInput } from "./HoursInput";
 import { useEffect, useState } from "react";
 import { GameDetails, GameUpdate } from "../interfaces";
 
@@ -27,6 +29,8 @@ export const emptyGameFormValues: GameFormValues = {
   service: false,
   comment: "",
   cover_image: null,
+  score: null,
+  hours: null,
 };
 
 const checkboxFields = [
@@ -168,6 +172,22 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
               nullable={true}
             />
           )}
+        />
+      </FormItem>
+
+      <FormItem label="Score" htmlFor={id("score")}>
+        <Controller
+          control={control}
+          name={name("score")}
+          render={({ field }) => <ScoreInput id={id("score")} value={field.value} onChange={field.onChange} onBlur={field.onBlur} />}
+        />
+      </FormItem>
+
+      <FormItem label="Hours Played" htmlFor={id("hours")}>
+        <Controller
+          control={control}
+          name={name("hours")}
+          render={({ field }) => <HoursInput id={id("hours")} value={field.value} onChange={field.onChange} onBlur={field.onBlur} />}
         />
       </FormItem>
 

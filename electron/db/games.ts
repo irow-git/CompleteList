@@ -2,6 +2,8 @@ import { and, count, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import Fuse from "fuse.js";
 import { formatDay } from "../../src/lib/dates";
 import { isImageRef } from "../../src/lib/imageRef";
+import { toScore } from "../../src/lib/score";
+import { HOURS_RANGES, toHours } from "../../src/lib/hours";
 import type {
   GameDetails,
   Checkpoint,
@@ -33,6 +35,8 @@ export const detailsOf = (game: GameDetails): GameDetails => ({
   service: game.service,
   comment: game.comment,
   cover_image: isImageRef(game.cover_image) ? game.cover_image : null,
+  score: toScore(game.score),
+  hours: toHours(game.hours),
 });
 
 const sameDetails = (a: GameDetails, b: GameDetails) => JSON.stringify(detailsOf(a)) === JSON.stringify(detailsOf(b));
@@ -64,6 +68,8 @@ const sortExpressions: Record<SortableField, SQL> = {
   completion: sql`${games.completion} collate nocase`,
   release_date: sql`${games.release_date}`,
   last_completion: sql`${games.last_completion}`,
+  score: sql`${games.score}`,
+  hours: sql`${games.hours}`,
 };
 
 // Each sort in turn, then the default title order for whatever is still tied. Empty values (missing dates) go last
@@ -206,14 +212,29 @@ export function listGames(db: Db, { page, pageSize, sort, search }: PageRequest)
   return { games: bases.map((base) => toGame(base, dlcsByParent.get(base.id) ?? [])), total, counts: countGames(db) };
 }
 
-// The key a ruler checkpoint groups games by: the letter the title sorts under, or a date's year (null without one)
+// The hours range a game falls in (see HOURS_RANGES), as its lower bound
+const hoursRange = sql.join(
+  [
+    sql`case when ${games.hours} is null then null`,
+    ...HOURS_RANGES.slice(1)
+      .reverse()
+      .map((bound) => sql`when ${games.hours} > ${bound} then ${String(bound)}`),
+    sql`else '0' end`,
+  ],
+  sql` `
+);
+
+// The key a ruler checkpoint groups games by: the letter the title sorts under, a date's year, the score's tens (90
+// takes in 100) or the hours range; null without a value
 const checkpointKey = {
   letter: sql<string | null>`upper(substr(${titleWithoutArticle}, 1, 1))`,
   release_date: sql<string | null>`strftime('%Y', ${games.release_date} / 1000, 'unixepoch')`,
   last_completion: sql<string | null>`strftime('%Y', ${games.last_completion} / 1000, 'unixepoch')`,
+  score: sql<string | null>`cast(min(${games.score}, 99) / 10 * 10 as text)`,
+  hours: sql<string | null>`${hoursRange}`,
 };
 
-// Where each letter or year starts in the list as it's currently sorted and searched, for the card view's ruler.
+// Where each letter, year or range starts in the list as it's currently sorted and searched, for the card view's ruler.
 // Consecutive games with the same key form one checkpoint, so it also follows descending sorts and puts games without
 // a date last, just like the list does
 export function listCheckpoints(db: Db, { sort, search, kind }: CheckpointRequest): Checkpoint[] {

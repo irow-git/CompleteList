@@ -7,14 +7,46 @@ import { useGamesStore } from "@/store/gamesStore";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
+import { HOURS_RANGES } from "@/lib/hours";
 
-// The ruler beside the cards marks where each letter or year starts, like the alphabet in iOS Contacts. It only
-// makes sense when the cards are sorted by what it marks, so choosing a ruler sorts the cards; it can also be turned
-// off without touching the sort
-const RULERS: { kind: CheckpointKind; field: SortableField; label: string }[] = [
-  { kind: "letter", field: "title", label: "A–Z" },
-  { kind: "release_date", field: "release_date", label: "Released" },
-  { kind: "last_completion", field: "last_completion", label: "Completed" },
+// The ruler beside the cards marks where each letter, year or range of scores or hours starts, like the alphabet in
+// iOS Contacts. It only makes sense when the cards are sorted by what it marks, so choosing a ruler sorts the cards;
+// it can also be turned off without touching the sort
+interface Ruler {
+  kind: CheckpointKind;
+  field: SortableField;
+  label: string;
+  // How a checkpoint's label reads on the rail, and in full (its tooltip, and while scrubbing)
+  mark: (label: string) => string;
+  name: (label: string) => string;
+}
+
+const asIs = (label: string) => label || "—";
+const year = (label: string) => label || "No date";
+
+const RULERS: Ruler[] = [
+  { kind: "letter", field: "title", label: "A–Z", mark: asIs, name: asIs },
+  { kind: "release_date", field: "release_date", label: "Released", mark: asIs, name: year },
+  { kind: "last_completion", field: "last_completion", label: "Completed", mark: asIs, name: year },
+  {
+    kind: "score",
+    field: "score",
+    label: "Score",
+    // Labels are the tens: "90" takes in 100, and "0" really starts at 1
+    mark: (label) => (label === "0" ? "1" : asIs(label)),
+    name: (label) => (!label ? "No score" : label === "90" ? "90–100" : label === "0" ? "1–9" : `${label}–${Number(label) + 9}`),
+  },
+  {
+    kind: "hours",
+    field: "hours",
+    label: "Hours",
+    mark: (label) => (Number(label) >= 1000 ? `${Number(label) / 1000}k` : asIs(label)),
+    name: (label) => {
+      if (!label) return "No hours";
+      const next = HOURS_RANGES[HOURS_RANGES.indexOf(Number(label)) + 1];
+      return next === undefined ? `Over ${label}h` : `${label}–${next}h`;
+    },
+  },
 ];
 
 // Which ruler is shown, if any. Kept apart from the sort, since the sort can match a ruler that's turned off
@@ -46,7 +78,8 @@ const directionIcon = (direction: GameSort["direction"] | undefined) =>
   direction === "desc" ? <ChevronDown className="size-6" aria-label="descending" /> : <ChevronUp className="size-6" aria-label="ascending" />;
 
 // Toolbar menu, like the sort menu: picking a ruler sorts by it and shows it; picking it again turns it off (the sort
-// stays). The arrow next to the chosen one flips the order; games without the date stay last either way
+// stays). The arrow next to the chosen one flips the order; games without the date (or score, or hours) stay last
+// either way
 export const RulerMenu: React.FC = () => {
   const { sort, setSort } = useGamesStore(useShallow(({ sort, setSort }) => ({ sort, setSort })));
   const setKind = useRulerStore((state) => state.setKind);
@@ -100,24 +133,23 @@ export const RulerMenu: React.FC = () => {
   );
 };
 
-// Rough height of a label in the rail: letters sit upright, years run vertically (one pixel-font character ≈ 8px)
-const labelHeight = (label: string) => (label.length <= 1 ? 18 : label.length * 8 + 8);
+// Rough height of a mark in the rail: single characters sit upright, longer ones (years) run vertically (one
+// pixel-font character ≈ 8px)
+const markHeight = (mark: string) => (mark.length <= 1 ? 18 : mark.length * 8 + 8);
 const DOT_HEIGHT = 10;
 // Space between the ruler and the toolbar above it, and the bottom of the window
 const MARGIN = 12;
-const displayLabel = (label: string) => label || "—";
-const describe = (checkpoint: Checkpoint) => `${checkpoint.label || "No date"} (${checkpoint.count})`;
 
 // Which checkpoints get a label when they don't all fit: every k-th (and always the last), with a dot standing in for
 // the ones skipped. Scrubbing still reaches every checkpoint
-function visibleCheckpoints(checkpoints: Checkpoint[], height: number) {
+function visibleCheckpoints(checkpoints: Checkpoint[], height: number, mark: Ruler["mark"]) {
   for (let step = 1; ; step++) {
     const shown: (Checkpoint | "dot")[] = [];
     let used = 0;
     checkpoints.forEach((checkpoint, i) => {
       if (i % step === 0 || i === checkpoints.length - 1) {
         shown.push(checkpoint);
-        used += labelHeight(checkpoint.label);
+        used += markHeight(mark(checkpoint.label));
       } else if (shown[shown.length - 1] !== "dot") {
         shown.push("dot");
         used += DOT_HEIGHT;
@@ -186,7 +218,7 @@ export const CardRuler: React.FC<{
   // The checkpoint the cards in view belong to. When it's one of those replaced by a dot, the nearest label shown
   // is highlighted instead
   const current = checkpoints.reduce((found, checkpoint) => (checkpoint.index <= currentIndex ? checkpoint : found), checkpoints[0]);
-  const shown = visibleCheckpoints(checkpoints, box.height - 16);
+  const shown = visibleCheckpoints(checkpoints, box.height - 16, ruler.mark);
   const labels = shown.filter((item): item is Checkpoint => item !== "dot");
   const position = checkpoints.indexOf(current);
   const active = labels.reduce((nearest, label) =>
@@ -238,17 +270,17 @@ export const CardRuler: React.FC<{
               key={`${item.label}-${item.index}`}
               type="button"
               data-checkpoint={checkpoints.indexOf(item)}
-              title={describe(item)}
+              title={`${ruler.name(item.label)} (${item.count})`}
               // Pointer presses are handled by the rail itself; this is for the keyboard
               onClick={(event) => event.detail === 0 && onJump(item.index)}
               aria-current={item === active ? "location" : undefined}
               className={cn(
                 "flex w-full shrink-0 items-center justify-center py-0.5 font-pixel text-[10px] leading-none text-ink outline-none focus-visible:underline",
-                item.label.length > 1 && "[writing-mode:vertical-rl]",
+                ruler.mark(item.label).length > 1 && "[writing-mode:vertical-rl]",
                 item === active && "bg-ink text-white"
               )}
             >
-              {displayLabel(item.label)}
+              {ruler.mark(item.label)}
             </button>
           )
         )}
@@ -260,7 +292,7 @@ export const CardRuler: React.FC<{
           className="option-clip pointer-events-none absolute left-10 -translate-y-1/2 bg-ink px-3 py-2 font-pixel text-xl whitespace-nowrap text-white"
           style={{ top: scrubbing.y }}
         >
-          {scrubbing.checkpoint.label || "No date"}
+          {ruler.name(scrubbing.checkpoint.label)}
         </div>
       )}
     </nav>

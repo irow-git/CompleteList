@@ -1,4 +1,4 @@
-import { AnySQLiteColumn, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { AnySQLiteColumn, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // Game details: what the user edits. Keys match GameDetails in src/interfaces so rows map onto it directly.
 // DLCs are rows too, pointing at their base game through parent_id.
@@ -19,6 +19,8 @@ export const games = sqliteTable(
     service: integer({ mode: "boolean" }).notNull().default(false),
     comment: text().notNull().default(""),
     cover_image: text(), // see src/lib/imageRef.ts
+    score: integer(), // 1–100
+    hours: real(),
   },
   (table) => [index("games_parent_id_idx").on(table.parent_id)]
 );

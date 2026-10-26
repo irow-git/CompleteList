@@ -7,12 +7,15 @@ import { GameActions } from "@/components/games/GameActions";
 import { GameListToolbar } from "@/components/games/GameListToolbar";
 import { GameHoverProvider, useGameHover } from "@/components/games/GameHoverDetails";
 import { CardRuler, RulerMenu } from "@/components/games/CardRuler";
+import { ScoreBadge } from "@/components/games/ScoreBadge";
 import { Slider } from "@/components/ui/slider";
 import { formatDay } from "@/lib/dates";
 import { imageUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 import { HIGHLIGHTED_TAGS } from "@/lib/tags";
 import { titleWithoutArticle } from "@/lib/titles";
+import { formatHours, glowLevel } from "@/lib/hours";
+import { coverGlowColor, vividHex } from "@/lib/coverColor";
 
 // Games without a cover (or whose image isn't on this computer yet) get a placeholder: the title's first letter on a
 // colour picked from the title, so a game keeps the same colour between visits
@@ -64,6 +67,28 @@ const Badge: React.FC<{ className?: string; children: React.ReactNode }> = ({ cl
   <span className={cn("max-w-full truncate bg-white/90 px-1.5 font-pixel text-[10px] leading-5 text-ink", className)}>{children}</span>
 );
 
+// The colour a card with lots of hours glows in (see .card-glow-* in App.css): the cover's, the placeholder's for a
+// game without one, or red over 9000. Covers are only sampled for the cards that glow
+function useGlow(game: IGame, showCover: boolean) {
+  const level = glowLevel(game.hours);
+  const [sampled, setSampled] = useState<{ ref: string; color: string | null } | null>(null);
+  const ref = level > 0 && level < 3 && showCover ? game.cover_image : null;
+  useEffect(() => {
+    if (!ref) return;
+    let current = true;
+    coverGlowColor(ref).then((color) => current && setSampled({ ref, color }));
+    return () => {
+      current = false;
+    };
+  }, [ref]);
+
+  if (level === 0) return null;
+  if (level === 3) return { level, color: "#ff1a1a" };
+  // Until the cover's been sampled the card doesn't glow, rather than flash the placeholder's colour first
+  if (ref) return sampled?.ref === ref ? { level, color: sampled.color ?? vividHex(coverColor(game.title)) } : null;
+  return { level, color: vividHex(coverColor(game.title)) };
+}
+
 // A fixed 9/21 card: the 2:3 cover on top (the same ratio the cropper cuts), details in the rest
 const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
   const hover = useGameHover();
@@ -74,9 +99,14 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
   const hiddenTags = game.tags.length - MAX_TAGS;
   const [completionBox, completionLines] = useFittingLines<HTMLDivElement>();
   const releaseYear = game.release_date && formatDay(game.release_date).slice(0, 4);
+  const glow = useGlow(game, !!showCover);
 
   return (
-    <article className="group relative aspect-[9/21] drop-shadow-[1px_2px_3px_black]" {...hover(game)}>
+    <article
+      className={cn("group relative aspect-[9/21]", glow ? `card-glow-${glow.level}` : "drop-shadow-[1px_2px_3px_black]")}
+      style={glow ? ({ "--glow": glow.color } as React.CSSProperties) : undefined}
+      {...hover(game)}
+    >
       <div className="option-clip flex h-full flex-col bg-white">
         <div
           className="relative aspect-[2/3] shrink-0"
@@ -95,20 +125,34 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
               {titleWithoutArticle(game.title).charAt(0).toUpperCase()}
             </span>
           )}
-          <div className="absolute top-2 right-2 left-2 flex flex-col items-start gap-1">
-            {game.service && <Badge className="text-green-700">Service</Badge>}
-            {game.free_to_play && <Badge>Free to play</Badge>}
-            {!game.service && game.original_copy && <Badge>Original</Badge>}
-            {game.tags.slice(0, MAX_TAGS).map((tag) => (
-              <Badge key={tag} className={HIGHLIGHTED_TAGS.has(tag) ? "text-red-700" : undefined}>
-                {tag}
-              </Badge>
-            ))}
-            {hiddenTags > 0 && <Badge>+{hiddenTags}</Badge>}
+          <div className="absolute top-2 right-2 left-2 flex items-start gap-1">
+            <div className="flex min-w-0 flex-auto flex-col items-start gap-1">
+              {game.service && <Badge className="text-green-700">Service</Badge>}
+              {game.free_to_play && <Badge>Free to play</Badge>}
+              {!game.service && game.original_copy && <Badge>Original</Badge>}
+              {game.tags.slice(0, MAX_TAGS).map((tag) => (
+                <Badge key={tag} className={HIGHLIGHTED_TAGS.has(tag) ? "text-red-700" : undefined}>
+                  {tag}
+                </Badge>
+              ))}
+              {hiddenTags > 0 && <Badge>+{hiddenTags}</Badge>}
+            </div>
+            {/* Makes way for the edit and delete buttons, which show in the same corner on hover */}
+            {game.score !== null && (
+              <ScoreBadge
+                score={game.score}
+                className="shrink-0 text-xs leading-6 transition-opacity group-focus-within:opacity-0 group-hover:opacity-0"
+              />
+            )}
           </div>
           {dlcCount > 0 && (
             <Badge className="absolute bottom-2 left-2">
               +{dlcCount} DLC
+            </Badge>
+          )}
+          {game.hours !== null && (
+            <Badge className="absolute right-2 bottom-2 max-w-[60%]">
+              <span title={glow?.level === 3 ? "It's over 9000!" : "Hours played"}>{formatHours(game.hours)}</span>
             </Badge>
           )}
         </div>

@@ -9,4 +9,6 @@ export const FIELD_LABELS: Record<SortableField, string> = {
   completion: "Completion Type",
   release_date: "Release Date",
   last_completion: "Last Completion",
+  score: "Score",
+  hours: "Hours",
 };

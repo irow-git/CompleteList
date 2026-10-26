@@ -5,6 +5,8 @@ import { formatDay } from "@/lib/dates";
 import { imageUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 import { HIGHLIGHTED_TAGS } from "@/lib/tags";
+import { formatHours } from "@/lib/hours";
+import { ScoreBadge } from "./ScoreBadge";
 
 // Hovering a card for a moment shows everything about the game and its DLCs. Once a panel is open, moving to another
 // card switches it almost at once. The pointer can move into the panel to scroll it (long DLC lists)
@@ -36,6 +38,20 @@ const Facts: React.FC<{ details: GameDetails }> = ({ details }) => (
     <dd>{details.release_date ? formatDay(details.release_date) : "—"}</dd>
     <dt className="text-black/55">Last completed</dt>
     <dd>{details.last_completion ? formatDay(details.last_completion) : "—"}</dd>
+    {details.score !== null && (
+      <>
+        <dt className="text-black/55">Score</dt>
+        <dd>
+          <ScoreBadge score={details.score} />
+        </dd>
+      </>
+    )}
+    {details.hours !== null && (
+      <>
+        <dt className="text-black/55">Hours played</dt>
+        <dd>{formatHours(details.hours)}</dd>
+      </>
+    )}
   </dl>
 );
 
@@ -78,9 +94,18 @@ const GameDetailsPanel: React.FC<{ game: IGame }> = ({ game }) => (
         <ul className="flex flex-col gap-3">
           {game.DLCs.map((dlc) => (
             <li key={dlc.id} className="flex flex-col gap-1">
-              <span className="font-pixel text-xs leading-snug">{dlc.title}</span>
+              <span className="flex items-start justify-between gap-2">
+                <span className="font-pixel text-xs leading-snug">{dlc.title}</span>
+                {dlc.score !== null && <ScoreBadge score={dlc.score} className="shrink-0" />}
+              </span>
               <span className="text-black/65">
-                {[dlc.completion, dlc.last_completion && `completed ${formatDay(dlc.last_completion)}`].filter(Boolean).join(" · ")}
+                {[
+                  dlc.completion,
+                  dlc.last_completion && `completed ${formatDay(dlc.last_completion)}`,
+                  dlc.hours !== null && formatHours(dlc.hours),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
               <Labels details={dlc} />
               {dlc.comment && <span className="text-black/65 whitespace-pre-line">{dlc.comment}</span>}

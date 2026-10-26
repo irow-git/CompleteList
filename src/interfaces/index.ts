@@ -12,6 +12,9 @@ export interface GameDetails {
   comment: string;
   // Reference to the cover image in the local image store (see src/lib/imageRef.ts), or null
   cover_image: string | null;
+  // Optional: a whole number from 1 to 100 (see src/lib/score.ts), and hours played (see src/lib/hours.ts)
+  score: number | null;
+  hours: number | null;
 }
 
 export interface IDLC extends GameDetails {
@@ -36,7 +39,9 @@ export type SortableField =
   | "title"
   | "completion"
   | "release_date"
-  | "last_completion";
+  | "last_completion"
+  | "score"
+  | "hours";
 
 export interface GameSort {
   field: SortableField;
@@ -54,14 +59,16 @@ export interface PageRequest {
   search?: string;
 }
 
-// What the card view's ruler marks: titles' first letters, or the year of a date
-export type CheckpointKind = "letter" | "release_date" | "last_completion";
+// What the card view's ruler marks: titles' first letters, the year of a date, or a range of scores or hours
+export type CheckpointKind = "letter" | "release_date" | "last_completion" | "score" | "hours";
 
 export type CheckpointRequest = Pick<PageRequest, "sort" | "search"> & { kind: CheckpointKind };
 
 // A run of consecutive games (in the list's order) sharing a letter or year, and where it starts in the list
 export interface Checkpoint {
-  label: string; // "A"…"Z", "#" for anything else; a year, or "" for games without that date
+  // "A"…"Z", "#" for anything else; a year; the low end of a range of scores or hours; or "" for
+  // games without that value
+  label: string;
   index: number;
   count: number;
 }

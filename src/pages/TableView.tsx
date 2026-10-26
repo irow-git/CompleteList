@@ -12,6 +12,7 @@ import { GameActions } from "@/components/games/GameActions";
 import { GameListToolbar } from "@/components/games/GameListToolbar";
 import { Pagination } from "@/components/games/Pagination";
 import { FIELD_LABELS } from "@/components/games/fields";
+import { ScoreBadge } from "@/components/games/ScoreBadge";
 
 // How plain values show up in cells; a column that needs something else sets its own `cell`
 const renderValue = (value: unknown): React.ReactNode => {
@@ -50,6 +51,14 @@ const dataColumns = [
   columnHelper.accessor("completion", { header: FIELD_LABELS.completion, minSize: 160 }),
   columnHelper.accessor("release_date", { header: FIELD_LABELS.release_date, minSize: 160 }),
   columnHelper.accessor("last_completion", { header: FIELD_LABELS.last_completion, minSize: 160 }),
+  columnHelper.accessor("score", {
+    header: FIELD_LABELS.score,
+    size: 110,
+    cell: ({ getValue }) => {
+      const score = getValue();
+      return score !== null && <ScoreBadge score={score} className="text-xs leading-6" />;
+    },
+  }),
 ];
 
 const columns = [

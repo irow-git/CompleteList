@@ -59,6 +59,8 @@ const details = (title: string, extra: Partial<GameDetails> = {}): GameDetails =
   service: false,
   comment: "",
   cover_image: null,
+  score: null,
+  hours: null,
   ...extra,
 });
 

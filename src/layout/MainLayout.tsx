@@ -1,4 +1,6 @@
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { ArrowUp } from "pixelarticons/react";
 import { useRulerShown } from "@/components/games/CardRuler";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +12,19 @@ type MainProps = {
 // That lets the table view give its panel exactly the space that's left, with the pagination fixed underneath
 const Main: React.FC<MainProps> = ({ children }) => {
   const rulerShown = useRulerShown();
+  const main = useRef<HTMLElement>(null);
+  // The card view gets a "back to top" button under the nav, there once it's scrolled down
+  const isCardView = useLocation().pathname === "/card";
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const element = main.current;
+    if (!isCardView || !element) return;
+    const track = () => setScrolled(element.scrollTop > 0);
+    track();
+    element.addEventListener("scroll", track, { passive: true });
+    return () => element.removeEventListener("scroll", track);
+  }, [isCardView]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-sand-light text-sm leading-[normal]">
@@ -35,6 +50,21 @@ const Main: React.FC<MainProps> = ({ children }) => {
               <div className="nav-item">Settings</div>
             </Link>
           </nav>
+
+          {isCardView && (
+            // Hidden rather than removed at the top, so the sidebar's bottom edge doesn't move
+            <div className={cn("mt-6 pl-[5px] text-left drop-shadow-[0px_1px_1px_black]", !scrolled && "invisible")}>
+              <button
+                type="button"
+                aria-label="Back to top"
+                title="Back to top"
+                onClick={() => main.current?.scrollTo({ top: 0, behavior: "smooth" })}
+                className="option-clip inline-flex size-9 cursor-pointer items-center justify-center bg-white text-ink hover:bg-sand"
+              >
+                <ArrowUp className="size-6" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* The torn bottom edge always sits at the very bottom: this area takes whatever height the nav leaves, and when
@@ -50,7 +80,10 @@ const Main: React.FC<MainProps> = ({ children }) => {
         </header>
         {/* Padding rather than margins, so the panels' drop shadows aren't cut off by the scroll area. The left padding
             widens to hold the card view's ruler while it's shown */}
-        <main className={cn("flex min-h-0 flex-auto flex-col overflow-y-auto pt-4 pr-6 pb-6 text-black/88", rulerShown ? "pl-12" : "pl-6")}>
+        <main
+          ref={main}
+          className={cn("flex min-h-0 flex-auto flex-col overflow-y-auto pt-4 pr-6 pb-6 text-black/88", rulerShown ? "pl-12" : "pl-6")}
+        >
           {children}
         </main>
       </div>

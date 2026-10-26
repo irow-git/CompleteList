@@ -6,9 +6,13 @@ import { imagePath } from "./store";
 // img://local/<ref> serves an image, img://local/<ref>/thumb its thumbnail
 export const IMAGE_SCHEME = "img";
 
-// Has to run before the app is ready: lets the page load img:// URLs like any other images
+// Has to run before the app is ready: lets the page load img:// URLs like any other images, and fetch them to read
+// their pixels (the card view samples a cover's colour, see src/lib/coverColor.ts), which needs CORS since the page
+// itself is served from elsewhere
 export function registerImageScheme() {
-  protocol.registerSchemesAsPrivileged([{ scheme: IMAGE_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
+  protocol.registerSchemesAsPrivileged([
+    { scheme: IMAGE_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  ]);
 }
 
 export function handleImageRequests(dir: string) {
@@ -20,7 +24,11 @@ export function handleImageRequests(dir: string) {
     const response = await net.fetch(pathToFileURL(file).toString());
     // A reference always means the same bytes, so the browser can keep it forever
     return new Response(response.body, {
-      headers: { "content-type": response.headers.get("content-type") ?? "application/octet-stream", "cache-control": "public, max-age=31536000, immutable" },
+      headers: {
+        "content-type": response.headers.get("content-type") ?? "application/octet-stream",
+        "cache-control": "public, max-age=31536000, immutable",
+        "access-control-allow-origin": "*",
+      },
     });
   });
 }
