@@ -30,27 +30,29 @@ const renderValue = (value: unknown): React.ReactNode => {
 const tableClass = "table-fixed text-[1.2em] leading-[1.5714]";
 const headRowClass = "bg-dirty-white hover:bg-dirty-white";
 const headClass =
-  "relative h-auto p-4 text-center font-semibold whitespace-normal not-last:before:absolute not-last:before:top-1/2 not-last:before:right-0 not-last:before:h-[1.6em] not-last:before:w-px not-last:before:-translate-y-1/2 not-last:before:bg-sand";
-const cellClass = "p-4 text-left whitespace-normal";
+  "relative h-auto px-2.5 py-4 text-center font-semibold whitespace-normal not-last:before:absolute not-last:before:top-1/2 not-last:before:right-0 not-last:before:h-[1.6em] not-last:before:w-px not-last:before:-translate-y-1/2 not-last:before:bg-sand";
+const cellClass = "px-2.5 py-4 text-left whitespace-normal";
 const EXPAND_WIDTH = 48;
-const ACTIONS_WIDTH = 112;
+const ACTIONS_WIDTH = 97;
 
 // The helper checks accessor keys against IGame, so a renamed or misspelled field is a type error
 const columnHelper = createColumnHelper<IGame>();
 
-// The game's own fields, shown for base games and, in the expanded row, for their DLCs
+// The game's own fields, shown for base games and, in the expanded row, for their DLCs. Widths fit each header with its
+// sort arrow (and the dates on one line), so that at the window's default size the table doesn't scroll sideways;
+// Title and Completion share whatever is left
 const dataColumns = [
-  columnHelper.accessor("platform", { header: FIELD_LABELS.platform, size: 150 }),
+  columnHelper.accessor("platform", { header: FIELD_LABELS.platform, size: 153 }),
   columnHelper.accessor("original_copy", {
     header: FIELD_LABELS.original_copy,
-    size: 140,
+    size: 130,
     cell: ({ row, getValue }) => (row.original.service ? <p className="text-green-700">Service</p> : renderValue(getValue())),
   }),
-  columnHelper.accessor("free_to_play", { header: FIELD_LABELS.free_to_play, size: 140 }),
-  columnHelper.accessor("title", { header: FIELD_LABELS.title, minSize: 160 }),
-  columnHelper.accessor("completion", { header: FIELD_LABELS.completion, minSize: 160 }),
-  columnHelper.accessor("release_date", { header: FIELD_LABELS.release_date, minSize: 160 }),
-  columnHelper.accessor("last_completion", { header: FIELD_LABELS.last_completion, minSize: 160 }),
+  columnHelper.accessor("free_to_play", { header: FIELD_LABELS.free_to_play, size: 97 }),
+  columnHelper.accessor("title", { header: FIELD_LABELS.title, minSize: 133 }),
+  columnHelper.accessor("completion", { header: FIELD_LABELS.completion, minSize: 133 }),
+  columnHelper.accessor("release_date", { header: FIELD_LABELS.release_date, size: 145 }),
+  columnHelper.accessor("last_completion", { header: FIELD_LABELS.last_completion, size: 168 }),
   columnHelper.accessor("score", {
     header: FIELD_LABELS.score,
     size: 110,
@@ -146,21 +148,31 @@ const DlcTable: React.FC<{ dlcs: IDLC[] }> = ({ dlcs }) => {
 // A sortable header is a button that cycles ascending → descending → unsorted; shift-click adds the column to the
 // current sort instead of replacing it. The sorting itself happens in the database
 const HeaderContent: React.FC<{ header: Header<IGame, unknown>; sortCount: number }> = ({ header, sortCount }) => {
-  const label = flexRender(header.column.columnDef.header, header.getContext());
-  if (!header.column.getCanSort()) return label;
+  if (!header.column.getCanSort()) return flexRender(header.column.columnDef.header, header.getContext());
 
   const sorted = header.column.getIsSorted();
   const SortIcon = sorted === "asc" ? ChevronUp : sorted === "desc" ? ChevronDown : ChevronsVertical;
+  // The arrow stays on the line with the last word, so a narrow column wraps the label instead of cutting off the arrow
+  const words = String(header.column.columnDef.header).split(" ");
+  const lastWord = words.pop();
   return (
     <button
       type="button"
       title="Shift-click to sort by several columns"
       onClick={header.column.getToggleSortingHandler()}
-      className="inline-flex cursor-pointer items-center gap-1 font-semibold uppercase hover:text-ink"
+      className="cursor-pointer font-semibold uppercase hover:text-ink"
     >
-      {label}
-      <SortIcon className={cn("size-6 shrink-0", !sorted && "opacity-30")} />
-      {sorted && sortCount > 1 && <span className="font-pixel text-xs">{header.column.getSortIndex() + 1}</span>}
+      {words.length > 0 && `${words.join(" ")} `}
+      <span className="inline-flex items-center gap-1 whitespace-nowrap align-middle">
+        {lastWord}
+        {/* With several sorts, each one's place sits on its arrow's corner, so it takes no room of its own */}
+        <span className="relative shrink-0">
+          <SortIcon className={cn("size-6", !sorted && "opacity-30")} />
+          {sorted && sortCount > 1 && (
+            <span className="absolute -top-1 -right-1.5 font-pixel text-[10px] leading-none">{header.column.getSortIndex() + 1}</span>
+          )}
+        </span>
+      </span>
     </button>
   );
 };

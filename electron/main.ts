@@ -20,6 +20,7 @@ function createWindow() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
+    icon: path.join(__dirname, "../dist/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       // The renderer gets no Node access; everything goes through window.api (see preload.ts)

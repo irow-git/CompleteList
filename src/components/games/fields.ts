@@ -4,8 +4,8 @@ import { SortableField } from "@/interfaces";
 export const FIELD_LABELS: Record<SortableField, string> = {
   title: "Title",
   platform: "Platform",
-  original_copy: "Original Copy",
-  free_to_play: "Free to play",
+  original_copy: "Original",
+  free_to_play: "Free",
   completion: "Completion Type",
   release_date: "Release Date",
   last_completion: "Last Completion",
