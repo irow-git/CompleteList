@@ -30,7 +30,7 @@ export const Pagination: React.FC = () => {
 
   if (pageCount <= MAX_VISIBLE_WITHOUT_ELLIPSIS) {
     return (
-      <nav aria-label="Pagination" className="my-4 flex items-center justify-end gap-4 font-pixel text-sm">
+      <nav aria-label="Pagination" className="h-full my-4 flex items-center justify-end gap-4 font-pixel text-sm">
         <button
           type="button"
           className="size-fit cursor-pointer disabled:cursor-not-allowed disabled:text-gray-400"
@@ -81,16 +81,16 @@ export const Pagination: React.FC = () => {
   };
 
   return (
-    <nav aria-label="Pagination" className="justify-between px-8 flex items-center font-pixel text-sm">
-      <p className="text-[18px]">
+    <nav aria-label="Pagination" className="h-full justify-between px-8 flex items-center font-pixel text-sm">
+      <p className="text-[20px]">
         Page&nbsp;
         <Input
           value={page + 1}
           max={pageCount}
           min={1}
-          onChange={(e) => loadPage(parseInt(e.target.value) - 1)}
+          onChange={(e) => loadPage(Number(e.target.value) - 1)}
           type="number"
-          className="p-1 w-14 bg-dirty-black border-1 border-solid border-black"
+          className="p-1 w-14 bg-dirty-black border-1 border-solid border-gray-400"
         ></Input>
         &nbsp;of {pageCount}
       </p>
@@ -118,7 +118,7 @@ export const Pagination: React.FC = () => {
             >
               1
             </button>
-            <MoreHorizontal className="size-6 flex items-center justify-center text-gray-400" />
+            <MoreHorizontal className="size-6 flex items-center justify-center mt-1" />
           </>
         )}
 
@@ -142,7 +142,7 @@ export const Pagination: React.FC = () => {
 
         {showTrailingEllipsis && (
           <>
-            <MoreHorizontal className="size-6 flex items-center justify-center text-gray-400" />
+            <MoreHorizontal className="size-6 flex items-center justify-center mt-1" />
             <button
               type="button"
               aria-current={pageCount - 1 === page ? "page" : undefined}

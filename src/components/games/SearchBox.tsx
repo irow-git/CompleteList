@@ -5,7 +5,7 @@ import { useGamesStore } from "@/store/gamesStore";
 import { Input } from "@/components/ui/input";
 import { RemoveButton } from "@/components/ui/remove-button";
 
-const SEARCH_DELAY_MS = 250;
+const SEARCH_DELAY_MS = 500;
 
 export const SearchBox: React.FC = () => {
   const { search, setSearch } = useGamesStore(useShallow(({ search, setSearch }) => ({ search, setSearch })));

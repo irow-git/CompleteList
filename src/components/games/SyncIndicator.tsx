@@ -47,15 +47,17 @@ export const SyncIndicator: React.FC = () => {
           {error}
         </span>
       )}
-      <button
-        type="button"
-        onClick={run}
-        disabled={running}
-        className="inline-flex cursor-pointer items-center gap-1 bg-white px-2 py-0.5 hover:bg-sand disabled:cursor-wait disabled:opacity-60"
-      >
-        <Reload className={cn("size-6", running && "animate-spin")} />
-        Sync
-      </button>
+      <div className="relative drop-shadow-[0px_1px_1px_black]">
+        <button
+          type="button"
+          onClick={run}
+          disabled={running}
+          className="form-control-clip-small inline-flex cursor-pointer items-center gap-1 bg-white px-2 py-0.5 hover:bg-sand disabled:cursor-wait disabled:opacity-60"
+        >
+          <Reload className={cn("size-6", running && "animate-spin")} />
+          Sync
+        </button>
+      </div>
     </span>
   );
 };

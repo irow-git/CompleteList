@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { GamePage, GameSort, GameUpdate, IGame, NewGame } from "../interfaces";
 import { useSyncStore } from "./syncStore";
 
-export const PAGE_SIZE = 10;
+export const PAGE_SIZE = 25;
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 

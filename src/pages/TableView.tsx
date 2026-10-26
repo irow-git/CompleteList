@@ -1,13 +1,5 @@
 import React, { Fragment, useEffect, useMemo } from "react";
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  useReactTable,
-  type Header,
-  type SortingState,
-} from "@tanstack/react-table";
+import { createColumnHelper, flexRender, getCoreRowModel, getExpandedRowModel, useReactTable, type Header, type SortingState } from "@tanstack/react-table";
 import { IDLC, IGame, SortableField } from "../interfaces";
 import { useShallow } from "zustand/react/shallow";
 import { useGamesStore } from "../store/gamesStore";
@@ -20,6 +12,7 @@ import { GameActions } from "@/components/games/GameActions";
 import { GameListToolbar } from "@/components/games/GameListToolbar";
 import { Pagination } from "@/components/games/Pagination";
 import { FIELD_LABELS } from "@/components/games/fields";
+import useResizeObserver, { ObserverRect } from "@/hooks/useResizeObserver";
 
 // How plain values show up in cells; a column that needs something else sets its own `cell`
 const renderValue = (value: unknown): React.ReactNode => {
@@ -51,7 +44,7 @@ const dataColumns = [
   columnHelper.accessor("original_copy", {
     header: FIELD_LABELS.original_copy,
     size: 140,
-    cell: ({ row, getValue }) => (row.original.service ? <p className="text-green-700">Service</p> : renderValue(getValue()))
+    cell: ({ row, getValue }) => (row.original.service ? <p className="text-green-700">Service</p> : renderValue(getValue())),
   }),
   columnHelper.accessor("free_to_play", { header: FIELD_LABELS.free_to_play, size: 140 }),
   columnHelper.accessor("title", { header: FIELD_LABELS.title, minSize: 160 }),
@@ -80,7 +73,7 @@ const columns = [
   ...dataColumns,
   columnHelper.display({
     id: "actions",
-    header: 'Actions',
+    header: "Actions",
     size: ACTIONS_WIDTH,
     cell: ({ row }) => <GameActions game={row.original} />,
   }),
@@ -164,18 +157,35 @@ const HeaderContent: React.FC<{ header: Header<IGame, unknown>; sortCount: numbe
   );
 };
 
-const TableView: React.FC = () => {
-
+const TableView: React.FC<{ headerRect: ObserverRect }> = ({ headerRect }) => {
   const { games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort } = useGamesStore(
-    useShallow(({ games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort }) =>
-      ({ games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort }))
+    useShallow(({ games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort }) => ({
+      games,
+      page,
+      pageSize,
+      total,
+      sort,
+      search,
+      infinite,
+      status,
+      loadPage,
+      setSort,
+    })),
   );
   const sorting: SortingState = sort.map(({ field, direction }) => ({ id: field, desc: direction === "desc" }));
+
+  const [ref, toolbarRect] = useResizeObserver();
 
   // Coming from the card view the store holds several scrolled-through pages; the table shows one at a time
   useEffect(() => {
     if (infinite || status === "idle") loadPage(0);
   }, [infinite, status, loadPage]);
+
+  const excessPanelHeight = useMemo(() => {
+    const footerHeigh = 100;
+    const excessMargins = 16*4; // header margin bottom, main margin top and bottom, margin between the main and pagination panel, all 16
+    return headerRect?.height + toolbarRect?.height + footerHeigh + excessMargins;
+  }, [headerRect, toolbarRect]);
 
   // Paging, sorting and search happen in the database: the store holds one page, and changes ask it for another
   const table = useReactTable({
@@ -204,63 +214,69 @@ const TableView: React.FC = () => {
 
   return (
     <>
-      <GameListToolbar />
-      <Panel className="font-chava">
-      <Table className={tableClass} style={{ minWidth: tableMinWidth(columns) }}>
-        <colgroup>
-          {columns.map((column, index) => (
-            <col key={index} style={column.size ? { width: column.size } : undefined} />
-          ))}
-        </colgroup>
-        <TableHeader className="option-clip">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className={headRowClass}>
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  aria-sort={
-                    header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : undefined
-                  }
-                  className={cn(headClass, header.column.id === "expand" && "before:hidden")}
-                >
-                  <HeaderContent header={header} sortCount={sorting.length} />
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length === 0 ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={columns.length} className="py-12 text-center font-pixel text-sm text-black/45">
-                {search ? `No games match "${search}"` : "No data"}
-              </TableCell>
-            </TableRow>
-          ) : (
-            table.getRowModel().rows.map((row) => (
-              <Fragment key={row.id}>
-                <TableRow>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className={cellClass}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                {row.getIsExpanded() && (
-                  <TableRow className="bg-white hover:bg-white">
-                    <TableCell colSpan={columns.length} className="p-0 text-sm" style={{ paddingLeft: EXPAND_WIDTH }}>
-                      <DlcTable dlcs={row.original.DLCs} />
-                    </TableCell>
+      <GameListToolbar ref={ref} />
+      <Panel
+        className="font-chava overflow-auto"
+        style={{
+          maxHeight: excessPanelHeight ? `calc(100vh - ${excessPanelHeight}px)` : undefined,
+        }}
+      >
+        <Table className={tableClass} style={{ minWidth: tableMinWidth(columns) }}>
+          <colgroup>
+            {columns.map((column, index) => (
+              <col key={index} style={column.size ? { width: column.size } : undefined} />
+            ))}
+          </colgroup>
+          <TableHeader className="option-clip">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className={headRowClass}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    aria-sort={header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : undefined}
+                    className={cn(headClass, header.column.id === "expand" && "before:hidden")}
+                  >
+                    <HeaderContent header={header} sortCount={sorting.length} />
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length} className="py-12 text-center font-pixel text-sm text-black/45">
+                  {search ? `No games match "${search}"` : "No data"}
+                </TableCell>
+              </TableRow>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <Fragment key={row.id}>
+                  <TableRow>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className={cellClass}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
                   </TableRow>
-                )}
-              </Fragment>
-            ))
-          )}
-        </TableBody>
-      </Table>
-
-      <Pagination />
+                  {row.getIsExpanded() && (
+                    <TableRow className="bg-white hover:bg-white">
+                      <TableCell colSpan={columns.length} className="p-0 text-sm" style={{ paddingLeft: EXPAND_WIDTH }}>
+                        <DlcTable dlcs={row.original.DLCs} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </Panel>
+      <div className="drop-shadow-[1px_2px_3px_black] fixed bottom-4 w-[calc(100%-328px)]">
+        <div className="clip bg-white p-6 h-[100px]">
+          <Pagination />
+        </div>
+      </div>
     </>
   );
 };
