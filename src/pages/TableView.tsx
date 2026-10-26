@@ -12,7 +12,6 @@ import { GameActions } from "@/components/games/GameActions";
 import { GameListToolbar } from "@/components/games/GameListToolbar";
 import { Pagination } from "@/components/games/Pagination";
 import { FIELD_LABELS } from "@/components/games/fields";
-import useResizeObserver, { ObserverRect } from "@/hooks/useResizeObserver";
 
 // How plain values show up in cells; a column that needs something else sets its own `cell`
 const renderValue = (value: unknown): React.ReactNode => {
@@ -157,7 +156,7 @@ const HeaderContent: React.FC<{ header: Header<IGame, unknown>; sortCount: numbe
   );
 };
 
-const TableView: React.FC<{ headerRect: ObserverRect }> = ({ headerRect }) => {
+const TableView: React.FC = () => {
   const { games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort } = useGamesStore(
     useShallow(({ games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort }) => ({
       games,
@@ -174,18 +173,10 @@ const TableView: React.FC<{ headerRect: ObserverRect }> = ({ headerRect }) => {
   );
   const sorting: SortingState = sort.map(({ field, direction }) => ({ id: field, desc: direction === "desc" }));
 
-  const [ref, toolbarRect] = useResizeObserver();
-
   // Coming from the card view the store holds several scrolled-through pages; the table shows one at a time
   useEffect(() => {
     if (infinite || status === "idle") loadPage(0);
   }, [infinite, status, loadPage]);
-
-  const excessPanelHeight = useMemo(() => {
-    const footerHeigh = 100;
-    const excessMargins = 16*4; // header margin bottom, main margin top and bottom, margin between the main and pagination panel, all 16
-    return headerRect?.height + toolbarRect?.height + footerHeigh + excessMargins;
-  }, [headerRect, toolbarRect]);
 
   // Paging, sorting and search happen in the database: the store holds one page, and changes ask it for another
   const table = useReactTable({
@@ -213,14 +204,10 @@ const TableView: React.FC<{ headerRect: ObserverRect }> = ({ headerRect }) => {
   });
 
   return (
-    <>
-      <GameListToolbar ref={ref} />
-      <Panel
-        className="font-chava overflow-auto"
-        style={{
-          maxHeight: excessPanelHeight ? `calc(100vh - ${excessPanelHeight}px)` : undefined,
-        }}
-      >
+    // The panel fills whatever height the toolbar and footer leave and scrolls inside, so the footer never moves
+    <div className="flex min-h-0 flex-1 flex-col">
+      <GameListToolbar />
+      <Panel fill className="font-chava">
         <Table className={tableClass} style={{ minWidth: tableMinWidth(columns) }}>
           <colgroup>
             {columns.map((column, index) => (
@@ -272,12 +259,12 @@ const TableView: React.FC<{ headerRect: ObserverRect }> = ({ headerRect }) => {
           </TableBody>
         </Table>
       </Panel>
-      <div className="drop-shadow-[1px_2px_3px_black] fixed bottom-4 w-[calc(100%-328px)]">
-        <div className="clip bg-white p-6 h-[100px]">
+      <div className="mt-4 shrink-0 drop-shadow-[1px_2px_3px_black]">
+        <div className="clip bg-white p-6 h-[92px]">
           <Pagination />
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

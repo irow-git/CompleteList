@@ -82,7 +82,11 @@ const CardView: React.FC = () => {
   // arrive: observing reports the current state right away, so a screen tall enough to show them all keeps loading
   useEffect(() => {
     if (!sentinel.current) return;
-    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && loadMore(), { rootMargin: "600px" });
+    // <main> is what scrolls (the window doesn't), and rootMargin only reaches ahead within the root it's given
+    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && loadMore(), {
+      root: sentinel.current.closest("main"),
+      rootMargin: "600px",
+    });
     observer.observe(sentinel.current);
     return () => observer.disconnect();
   }, [games.length, loadMore]);

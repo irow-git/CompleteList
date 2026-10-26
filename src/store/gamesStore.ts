@@ -2,7 +2,19 @@ import { create } from "zustand";
 import { GamePage, GameSort, GameUpdate, IGame, NewGame } from "../interfaces";
 import { useSyncStore } from "./syncStore";
 
-export const PAGE_SIZE = 25;
+export const PAGE_SIZES = [10, 25, 50, 75, 100];
+const DEFAULT_PAGE_SIZE = 25;
+const PAGE_SIZE_KEY = "page-size";
+
+// The page size is a per-computer preference, so it lives in localStorage rather than the database
+const savedPageSize = () => {
+  try {
+    const saved = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return PAGE_SIZES.includes(saved) ? saved : DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+};
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 
@@ -26,6 +38,8 @@ interface GamesState {
   // Infinite mode: starts over at the first page, then loadMore appends the next one (if there is one)
   loadFirst(): Promise<void>;
   loadMore(): Promise<void>;
+  // Keeps the first game currently shown on screen, on whichever page it lands at the new size
+  setPageSize(pageSize: number): Promise<void>;
   // Both go back to the first page, since the old page number means nothing in the new order
   setSort(sort: GameSort[]): Promise<void>;
   setSearch(search: string): Promise<void>;
@@ -42,7 +56,7 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   games: [],
   page: 0,
   infinite: false,
-  pageSize: PAGE_SIZE,
+  pageSize: savedPageSize(),
   total: 0,
   sort: [],
   search: "",
@@ -51,6 +65,7 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   error: undefined,
 
   loadPage: async (page) => {
+    page = Math.max(0, Math.floor(page) || 0);
     const request = ++latestRequest;
     const { pageSize, sort, search } = get();
     set({ status: "loading", error: undefined });
@@ -103,6 +118,18 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
       if (request !== latestRequest) return;
       set({ status: "error", error: String(error) });
     }
+  },
+
+  setPageSize: (pageSize) => {
+    if (!PAGE_SIZES.includes(pageSize)) return Promise.resolve();
+    try {
+      localStorage.setItem(PAGE_SIZE_KEY, String(pageSize));
+    } catch {
+      // Not saved; the size still applies until the app restarts
+    }
+    const firstShown = get().page * get().pageSize;
+    set({ pageSize });
+    return get().infinite ? get().loadFirst() : get().loadPage(Math.floor(firstShown / pageSize));
   },
 
   setSort: (sort) => {

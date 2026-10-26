@@ -1,14 +1,15 @@
-import { forwardRef } from "react";
 import { Link } from "react-router-dom";
 
 type MainProps = {
   children?: React.ReactNode;
 };
 
-const Main = forwardRef<HTMLElement, MainProps>(({ children }, ref) => {
+// The layout is exactly the window's height and the page itself never scrolls; <main> scrolls when a page is taller.
+// That lets the table view give its panel exactly the space that's left, with the pagination fixed underneath
+const Main: React.FC<MainProps> = ({ children }) => {
   return (
-    <div className="flex min-h-screen bg-sand-light text-sm leading-[normal]">
-      <aside className="relative ml-6 h-[920px] w-60 shrink-0 bg-[linear-gradient(0deg,rgba(0,0,0,1)_0%,rgba(114,108,120,0.99)_100%)] text-white">
+    <div className="flex h-screen overflow-hidden bg-sand-light text-sm leading-[normal]">
+      <aside className="relative ml-6 flex h-full w-60 shrink-0 flex-col overflow-hidden bg-[linear-gradient(0deg,rgba(0,0,0,1)_0%,rgba(114,108,120,0.99)_100%)] text-white">
         <div className="leading-[1.5714]">
           <div className="mt-10 mb-[50px] inline-block">
             <img className="inline align-baseline drop-shadow-[2px_2px_12px_white]" src="images/logo.png" alt="logo" width={208} draggable={false} />
@@ -32,17 +33,22 @@ const Main = forwardRef<HTMLElement, MainProps>(({ children }, ref) => {
           </nav>
         </div>
 
-        <img className="relative mt-[82px] inline align-baseline" src="images/tear.png" alt="tear" draggable={false} />
+        {/* The torn bottom edge always sits at the very bottom: this area takes whatever height the nav leaves, and when
+            that's less than the image, the image's top is cut off rather than the edge (or the nav being covered) */}
+        <div className="flex min-h-0 flex-1 items-end overflow-hidden">
+          <img className="block shrink-0" src="images/tear.png" alt="tear" draggable={false} />
+        </div>
       </aside>
 
-      <div className="flex min-w-0 flex-auto flex-col">
-        <header ref={ref} className="h-fit text-[2.5em] leading-16 text-transparent [text-shadow:0px_4px_4px_#dedbd3,0_0_0_black,0px_4px_4px_#dedbd3]">
+      <div className="flex min-h-0 min-w-0 flex-auto flex-col">
+        <header className="h-fit text-[2.5em] leading-16 text-transparent [text-shadow:0px_4px_4px_#dedbd3,0_0_0_black,0px_4px_4px_#dedbd3]">
           Complete List - Video Games
         </header>
-        <main className="mx-8 mt-4 mb-6 flex-auto text-black/88">{children}</main>
+        {/* Padding rather than margins, so the panels' drop shadows aren't cut off by the scroll area */}
+        <main className="flex min-h-0 flex-auto flex-col overflow-y-auto px-8 pt-4 pb-6 text-black/88">{children}</main>
       </div>
     </div>
   );
-});
+};
 
 export default Main;
