@@ -75,7 +75,7 @@ const GameDetailsPanel: React.FC<{ game: IGame }> = ({ game }) => (
   <div className="flex flex-col gap-3">
     <div className="flex gap-3">
       {game.cover_image && (
-        <img src={imageUrl(game.cover_image, "thumb")} alt="" className="aspect-[2/3] w-[84px] shrink-0 object-cover" onError={(event) => event.currentTarget.remove()} />
+        <img src={imageUrl(game.id, game.cover_image, "thumb")} alt="" className="aspect-[2/3] w-[84px] shrink-0 object-cover" onError={(event) => event.currentTarget.remove()} />
       )}
       <div className="flex min-w-0 flex-col gap-1.5">
         <h3 className="font-pixel text-sm leading-snug">{game.title}</h3>

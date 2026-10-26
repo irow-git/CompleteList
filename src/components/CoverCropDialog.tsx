@@ -29,7 +29,13 @@ const initialArea = (image: { width: number; height: number }) => {
 type Drag = { mode: "move" | "resize"; pointerX: number; pointerY: number; start: CropArea };
 
 // Picks the part of a picture shown as the card's cover, then stores it. Resolves to the stored image's reference
-export const CoverCropDialog: React.FC<{ file: File | null; onCancel: () => void; onDone: (ref: string) => void }> = ({ file, onCancel, onDone }) => {
+// `owner` is the game or DLC the cover is for: it's stored in that one's folder
+export const CoverCropDialog: React.FC<{ file: File | null; owner: string; onCancel: () => void; onDone: (ref: string) => void }> = ({
+  file,
+  owner,
+  onCancel,
+  onDone,
+}) => {
   const [image, setImage] = useState<{ bitmap: ImageBitmap; url: string } | null>(null);
   const [area, setArea] = useState<CropArea | null>(null);
   const [saving, setSaving] = useState(false);
@@ -112,7 +118,7 @@ export const CoverCropDialog: React.FC<{ file: File | null; onCancel: () => void
     setSaving(true);
     setError(null);
     try {
-      onDone(await window.api.images.save(await cropCover(image.bitmap, area)));
+      onDone(await window.api.images.save(owner, await cropCover(image.bitmap, area)));
     } catch (reason) {
       setError(ipcErrorMessage(reason));
     } finally {

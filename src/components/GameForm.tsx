@@ -1,4 +1,4 @@
-import { Controller, FieldError, FieldPath, get, useFormContext } from "react-hook-form";
+import { Controller, FieldError, FieldPath, get, useFormContext, useWatch } from "react-hook-form";
 import AppendableSelectDropdown, { SelectItem } from "./AppendableSelectDropdown";
 import { FormItem } from "./FormItem";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,10 @@ import { GameDetails, GameUpdate } from "../interfaces";
 // The form edits exactly what gets stored, so submitted values can go straight to the database
 export type GameFormValues = GameDetails;
 
-// DLCs being edited keep their id, so the update can tell existing DLCs from new ones
-export type AddGameFormValues = Omit<GameUpdate, "id">;
+// DLCs being edited keep their id, so the update can tell existing DLCs from new ones. The game's id is in the form
+// too: a new game gets one when the form opens (and each new DLC when it's added), so covers can be stored in its
+// folder before it's saved
+export type AddGameFormValues = Omit<GameUpdate, "id"> & { id?: string };
 
 export const emptyGameFormValues: GameFormValues = {
   title: "",
@@ -66,6 +68,8 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
     localStorageTagItems && setTagItems(JSON.parse(localStorageTagItems));
   }, []);
 
+  // Whose cover this is: the game's id, or the DLC's
+  const owner = useWatch({ control, name: (prefix ? `${prefix}.id` : "id") as "id" }) ?? "";
   const name = <F extends keyof GameFormValues>(field: F) => (prefix ? `${prefix}.${field}` : field) as FieldPath<AddGameFormValues> & F;
   const id = (field: keyof GameFormValues) => (prefix ? `${prefix.replace(".", "_")}_${field}` : field);
   const error = (field: keyof GameFormValues): string | undefined => (get(errors, name(field)) as FieldError | undefined)?.message;
@@ -227,7 +231,7 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
         <Controller
           control={control}
           name={name("cover_image")}
-          render={({ field }) => <ImagePicker id={id("cover_image")} value={field.value} onChange={field.onChange} />}
+          render={({ field }) => <ImagePicker id={id("cover_image")} owner={owner} value={field.value} onChange={field.onChange} />}
         />
       </FormItem>
     </div>

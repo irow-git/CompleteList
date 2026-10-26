@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ImageSyncProviderId, ImageSyncResult, ImageSyncStatus } from "../../src/interfaces";
-import { isImageRef } from "../../src/lib/imageRef";
+import { isImageRef, isOwnerId } from "../../src/lib/imageRef";
+import { imageFiles, removeImage, storedFiles } from "./store";
 import { DEFAULT_IMAGE_FOLDER, IMAGE_SYNC_PROVIDERS } from "../../src/lib/imageSyncProviders";
 import type { RcloneOutput, RcloneRunner } from "./rclone";
 
@@ -9,6 +10,12 @@ interface Settings {
   customRclonePath: string | null;
   provider: ImageSyncProviderId | null;
   folder: string;
+}
+
+// A cover as the image sync sees it: which game's folder, and which file
+export interface Cover {
+  gameId: string;
+  image: string;
 }
 
 export interface ImageSyncDeps {
@@ -22,14 +29,16 @@ export interface ImageSyncDeps {
 // rclone prints the address of its local login page while it waits for the browser login to finish
 export const LOGIN_URL = /https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/auth\?\S+/;
 
-const thumbnailName = (ref: string) => `${ref.slice(0, ref.indexOf("."))}.thumb.webp`;
-// What lives in the images folder and gets synced: images and their thumbnails (never half-written .tmp files)
-const isStoredFile = (name: string) => isImageRef(name) || /^[a-f0-9]{64}\.thumb\.webp$/.test(name);
 const remoteName = (provider: ImageSyncProviderId) => `completelist-${provider}`;
 
-// A folder inside the storage: no leading/trailing slashes, and nothing that climbs out of it
+// A folder inside the storage: no leading/trailing slashes, no control characters, and nothing that climbs out of it.
+// Never empty, so syncing never works on the storage's top level
 export function cleanFolder(folder: string): string {
-  const parts = folder.split(/[\\/]+/).map((part) => part.trim()).filter((part) => part && part !== "." && part !== "..");
+  const parts = folder
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .split(/[\\/]+/)
+    .map((part) => part.trim())
+    .filter((part) => part && part !== "." && part !== "..");
   return parts.length > 0 ? parts.join("/") : DEFAULT_IMAGE_FOLDER;
 }
 
@@ -145,9 +154,10 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
       return status();
     },
 
-    // Images are named by their content, so syncing is just: upload what the cloud doesn't have, download what this
-    // computer's games use but doesn't have. Nothing is ever overwritten, and nothing is deleted from the cloud
-    sync: async (referenced: string[]): Promise<ImageSyncResult> => {
+    // Covers are named by their content, in a folder per game, so syncing is: upload the covers the cloud doesn't have,
+    // download the ones this computer's games use but doesn't have, and delete the ones deleted from a history (here
+    // and in the cloud). Nothing is ever overwritten. One recursive listing covers every game's folder
+    sync: async (coversToSync: { live: Cover[]; deleted: Cover[] }): Promise<ImageSyncResult> => {
       const { provider, folder } = readSettings();
       if (!provider) throw new Error("Image sync isn't connected.");
       const run = await rclone();
@@ -155,38 +165,47 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
 
       const made = await run(["mkdir", remote]);
       if (made.code !== 0) throw failure("Reaching the cloud folder", made);
-      const listed = await run(["lsf", remote, "--files-only"]);
+      const listed = await run(["lsf", remote, "--recursive", "--files-only"]);
       if (listed.code !== 0) throw failure("Listing the cloud folder", listed);
       const inCloud = new Set(listed.stdout.split("\n").map((line) => line.trim()).filter(Boolean));
 
-      fs.mkdirSync(imagesDir, { recursive: true });
-      const local = new Set(fs.readdirSync(imagesDir));
-      const images = [...new Set(referenced.filter(isImageRef))];
-      const filesOf = (ref: string) => [ref, thumbnailName(ref)];
+      const valid = (cover: Cover) => isOwnerId(cover.gameId) && isImageRef(cover.image);
+      const live = coversToSync.live.filter(valid);
+      const deleted = coversToSync.deleted.filter(valid);
+      const local = new Set(storedFiles(imagesDir));
 
-      const toUpload = [...local].filter((name) => isStoredFile(name) && !inCloud.has(name));
-      const neededHere = images.flatMap(filesOf).filter((name) => !local.has(name));
-      const toDownload = neededHere.filter((name) => inCloud.has(name));
+      const liveFiles = live.flatMap((cover) => imageFiles(cover.gameId, cover.image));
+      const toUpload = liveFiles.filter((file) => local.has(file) && !inCloud.has(file));
+      const toDownload = liveFiles.filter((file) => !local.has(file) && inCloud.has(file));
+      const toDelete = deleted.flatMap((cover) => imageFiles(cover.gameId, cover.image)).filter((file) => inCloud.has(file));
 
-      const copy = async (from: string, to: string, files: string[], action: string) => {
+      // rclone reads the files to act on from a list, as paths relative to the folders it's given
+      const withList = async (files: string[], action: string, args: (list: string) => string[]) => {
         if (files.length === 0) return;
+        fs.mkdirSync(dataDir, { recursive: true });
         const list = path.join(dataDir, `files-${Date.now()}.txt`);
         fs.writeFileSync(list, files.join("\n"));
         try {
-          const copied = await run(["copy", from, to, "--files-from", list, "--no-traverse", "--ignore-existing"]);
-          if (copied.code !== 0) throw failure(action, copied);
+          const result = await run(args(list));
+          if (result.code !== 0) throw failure(action, result);
         } finally {
           fs.rmSync(list, { force: true });
         }
       };
-      await copy(imagesDir, remote, toUpload, "Uploading images");
-      await copy(remote, imagesDir, toDownload, "Downloading images");
+      const copyArgs = (from: string, to: string) => (list: string) => ["copy", from, to, "--files-from", list, "--no-traverse", "--ignore-existing"];
+      fs.mkdirSync(imagesDir, { recursive: true });
+      await withList(toUpload, "Uploading covers", copyArgs(imagesDir, remote));
+      await withList(toDownload, "Downloading covers", copyArgs(remote, imagesDir));
+      await withList(toDelete, "Deleting covers from the cloud", (list) => ["delete", remote, "--files-from", list]);
+      // Deleted covers that came from another computer's history go from this one too
+      for (const cover of deleted) removeImage(imagesDir, cover.gameId, cover.image);
 
-      const count = (names: string[]) => names.filter(isImageRef).length;
+      const images = (files: string[]) => files.filter((file) => isImageRef(file.slice(file.indexOf("/") + 1))).length;
       return {
-        uploaded: count(toUpload),
-        downloaded: count(toDownload),
-        missing: images.filter((ref) => !local.has(ref) && !inCloud.has(ref)).length,
+        uploaded: images(toUpload),
+        downloaded: images(toDownload),
+        deleted: images(toDelete),
+        missing: live.filter(({ gameId, image }) => !local.has(`${gameId}/${image}`) && !inCloud.has(`${gameId}/${image}`)).length,
       };
     },
   };

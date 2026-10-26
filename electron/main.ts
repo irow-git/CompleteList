@@ -1,12 +1,13 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, MenuItemConstructorOptions, shell } from "electron";
+import fs from "node:fs";
 import path from "node:path";
 import { Db, openDatabase } from "./db";
-import { createGame, getGame, listCheckpoints, listGames, removeGame, updateGame } from "./db/games";
+import { createGame, getGame, listCheckpoints, listGames, removeCover, removeGame, updateGame } from "./db/games";
+import { coverFilesToKeep, listCovers } from "./db/covers";
 import { createSyncService } from "./sync";
 import { clearFirebaseSettings, getFirebaseSettings, saveFirebaseSettings } from "./sync/settings";
-import { games } from "./db/schema";
 import { handleImageRequests, registerImageScheme } from "./images/protocol";
-import { removeUnusedImages, saveImage } from "./images/store";
+import { removeImage, removeUnusedImages, saveImage } from "./images/store";
 import { createImageSync, LOGIN_URL } from "./images/imageSync";
 import { findRclone, rcloneRunner } from "./images/rclone";
 
@@ -35,16 +36,24 @@ function createWindow() {
     return { action: "deny" };
   });
 
-  win.webContents.on("context-menu", (_event, params) => {
-    const menu = Menu.buildFromTemplate([
-      {
-        label: "Inspect Element",
-        click: () => {
-          win.webContents.inspectElement(params.x, params.y);
-        },
-      },
-    ]);
-    menu.popup({ window: win });
+  win.webContents.on("context-menu", (_event, { isEditable, selectionText, editFlags, x, y }) => {
+    const template: MenuItemConstructorOptions[] = [];
+    if (isEditable) {
+      template.push(
+        { role: "cut", enabled: editFlags.canCut },
+        { role: "copy", enabled: editFlags.canCopy },
+        { role: "paste", enabled: editFlags.canPaste },
+        { type: "separator" },
+        { role: "selectAll", enabled: editFlags.canSelectAll }
+      );
+    } else if (selectionText.trim()) {
+      template.push({ role: "copy" });
+    }
+    if (!app.isPackaged) {
+      if (template.length) template.push({ type: "separator" });
+      template.push({ label: "Inspect Element", click: () => win.webContents.inspectElement(x, y) });
+    }
+    if (template.length) Menu.buildFromTemplate(template).popup({ window: win });
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -64,7 +73,20 @@ function registerIpcHandlers(db: Db) {
   ipcMain.handle("games:update", (_event, game) => updateGame(db, game));
   ipcMain.handle("games:remove", (_event, id) => removeGame(db, id));
 
-  ipcMain.handle("images:save", (_event, image) => saveImage(imagesDir(), image));
+  ipcMain.handle("images:save", (_event, owner, image) => saveImage(imagesDir(), owner, image));
+  ipcMain.handle("covers:list", (_event, gameId) => listCovers(db, gameId));
+  // The files go straight away; the cloud copy goes at the next sync, once the deletion has been recorded there
+  ipcMain.handle("covers:remove", (_event, id) => {
+    const removed = removeCover(db, id);
+    if (removed) removeImage(imagesDir(), removed.gameId, removed.image);
+  });
+  ipcMain.handle("images:folder", () => imagesDir());
+  ipcMain.handle("images:openFolder", async () => {
+    // Created first, so it opens even before the first cover has been added
+    fs.mkdirSync(imagesDir(), { recursive: true });
+    const error = await shell.openPath(imagesDir());
+    if (error) throw new Error(`Couldn't open the folder: ${error}`);
+  });
 
   ipcMain.handle("settings:getFirebase", () => getFirebaseSettings());
   ipcMain.handle("settings:saveFirebase", (_event, input) => saveFirebaseSettings(db, input));
@@ -93,14 +115,18 @@ function registerIpcHandlers(db: Db) {
   ipcMain.handle("sync:run", () => sync.run());
 }
 
-// Covers that were replaced or belonged to games since purged. Only at startup, so a picture chosen in a form that
-// hasn't been saved yet is never removed from under it
+// Files no cover in the history points at: pictures picked in a form that was never saved, deleted covers, and
+// anything from the old flat layout. Only at startup, so a picture chosen in a form that's still open is never
+// removed from under it
 function cleanUpImages(db: Db) {
-  const referenced = db.select({ ref: games.cover_image }).from(games).all().flatMap(({ ref }) => (ref ? [ref] : []));
-  removeUnusedImages(imagesDir(), new Set(referenced));
+  removeUnusedImages(imagesDir(), coverFilesToKeep(db));
 }
 
 app.whenReady().then(() => {
+  // No File/Edit/View menu bar in the packaged app. macOS keeps its menu: it lives in the top bar, not the window,
+  // and without it Cmd+C/Cmd+V stop working
+  if (app.isPackaged && process.platform !== "darwin") Menu.setApplicationMenu(null);
+
   const db = openDatabase();
   cleanUpImages(db);
   handleImageRequests(imagesDir());

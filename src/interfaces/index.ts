@@ -26,8 +26,9 @@ export interface IGame extends GameDetails {
   DLCs: IDLC[];
 }
 
-// What gets passed in when creating a game; the database assigns the ids
-export type NewGame = GameDetails & { DLCs: GameDetails[] };
+// What gets passed in when creating a game. The form gives the game and its DLCs their ids up front (covers are stored
+// in a folder per id before the game is saved); without one, the database assigns it
+export type NewGame = GameDetails & { id?: string; DLCs: (GameDetails & { id?: string })[] };
 
 // What gets passed in when saving an existing game. DLCs without an id are new; existing DLCs left out are deleted
 export type GameUpdate = GameDetails & { id: string; DLCs: (GameDetails & { id?: string })[] };
@@ -137,9 +138,19 @@ export interface ImageSyncStatus {
   folder: string;
 }
 
+// A cover a game or DLC has been saved with (its current one included)
+export interface CoverEntry {
+  id: string;
+  gameId: string;
+  image: string;
+  createdAt: Date;
+}
+
 export interface ImageSyncResult {
   uploaded: number;
   downloaded: number;
+  // Covers deleted from the history, removed from the cloud
+  deleted: number;
   // Used by a game here but not in the cloud yet (e.g. picked on a computer that hasn't synced since)
   missing: number;
 }

@@ -16,8 +16,10 @@ export interface CropArea {
   height: number;
 }
 
-// Served by the main process (electron/images/protocol.ts); a reference always means the same bytes
-export const imageUrl = (ref: string, variant: "full" | "thumb" = "full") => `img://local/${ref}${variant === "thumb" ? "/thumb" : ""}`;
+// Served by the main process (electron/images/protocol.ts) from the folder of the game or DLC the cover belongs to; a
+// reference always means the same bytes
+export const imageUrl = (owner: string, ref: string, variant: "full" | "thumb" = "full") =>
+  `img://local/${owner}/${ref}${variant === "thumb" ? "/thumb" : ""}`;
 
 // Throws a message for the user if the file can't be used as a cover
 export function checkImageFile(file: Blob) {

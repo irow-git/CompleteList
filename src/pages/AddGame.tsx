@@ -17,7 +17,7 @@ const AddGame: React.FC = () => {
 
   return (
     <Panel>
-      <GameEditor defaultValues={{ ...emptyGameFormValues, DLCs: [] }} onSubmit={onFinish} />
+      <GameEditor defaultValues={{ ...emptyGameFormValues, id: crypto.randomUUID(), DLCs: [] }} onSubmit={onFinish} />
     </Panel>
   );
 };

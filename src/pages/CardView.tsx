@@ -76,11 +76,11 @@ function useGlow(game: IGame, showCover: boolean) {
   useEffect(() => {
     if (!ref) return;
     let current = true;
-    coverGlowColor(ref).then((color) => current && setSampled({ ref, color }));
+    coverGlowColor(game.id, ref).then((color) => current && setSampled({ ref, color }));
     return () => {
       current = false;
     };
-  }, [ref]);
+  }, [game.id, ref]);
 
   if (level === 0) return null;
   if (level === 3) return { level, color: "#ff1a1a" };
@@ -114,7 +114,7 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
         >
           {showCover ? (
             <img
-              src={imageUrl(game.cover_image!, "thumb")}
+              src={imageUrl(game.id, game.cover_image!, "thumb")}
               alt=""
               loading="lazy"
               onError={() => setCoverMissing(true)}

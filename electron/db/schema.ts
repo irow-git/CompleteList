@@ -48,3 +48,23 @@ export const syncState = sqliteTable("sync_state", {
   key: text().primaryKey(),
   value: text().notNull(),
 });
+
+// Every cover a game or DLC has been saved with, so earlier ones can be picked again or deleted. Synced like the games:
+// deleting one leaves a tombstone, so the deletion reaches every computer, and the image sync then removes the file
+// from the cloud. game_id is deliberately not a foreign key: tombstones have to outlive their game (deleted games are
+// purged after syncing), or a deleted game's cover files would never be cleaned up. The id is "<game id>:<image>", so
+// two computers recording the same cover end up with the same row
+export const covers = sqliteTable(
+  "covers",
+  {
+    id: text().primaryKey(),
+    game_id: text().notNull(),
+    image: text().notNull(), // see src/lib/imageRef.ts
+    created_at: integer({ mode: "timestamp_ms" }).notNull(),
+    updated_at: integer({ mode: "timestamp_ms" }).notNull(),
+    deleted_at: integer({ mode: "timestamp_ms" }),
+    // Local only: changed since the last sync
+    dirty: integer({ mode: "boolean" }).notNull().default(true),
+  },
+  (table) => [index("covers_game_id_idx").on(table.game_id), index("covers_dirty_idx").on(table.dirty)]
+);

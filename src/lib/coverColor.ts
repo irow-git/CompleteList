@@ -27,9 +27,9 @@ export const vividHex = (hex: string) => {
 };
 
 // Averages a small copy of the image, each pixel weighted by how colourful it is; greys barely count
-async function sample(ref: string): Promise<string | null> {
+async function sample(owner: string, ref: string): Promise<string | null> {
   try {
-    const response = await fetch(imageUrl(ref, "thumb"));
+    const response = await fetch(imageUrl(owner, ref, "thumb"));
     if (!response.ok) return null;
     const bitmap = await createImageBitmap(await response.blob(), { resizeWidth: 16, resizeHeight: 24 });
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -56,9 +56,10 @@ async function sample(ref: string): Promise<string | null> {
 
 const sampled = new Map<string, Promise<string | null>>();
 
-// Null if the image can't be read. Worked out once per image: a reference always means the same picture
-export function coverGlowColor(ref: string) {
-  let color = sampled.get(ref);
-  if (!color) sampled.set(ref, (color = sample(ref)));
+// Null if the image can't be read. Worked out once per cover: a reference always means the same picture
+export function coverGlowColor(owner: string, ref: string) {
+  const key = `${owner}/${ref}`;
+  let color = sampled.get(key);
+  if (!color) sampled.set(key, (color = sample(owner, ref)));
   return color;
 }

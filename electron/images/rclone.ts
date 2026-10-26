@@ -9,14 +9,18 @@ export interface RcloneOutput {
   stderr: string;
 }
 
-// Runs rclone with an argument list (never through a shell, so no file or folder name can become a command)
+// Runs rclone with an argument list (never through a shell, so no file or folder name can become a command).
+// RCLONE_* environment variables are left out: rclone reads them as options, and some can point a remote somewhere
+// else (e.g. RCLONE_CONFIG_<REMOTE>_ROOT_FOLDER_ID) or widen what a command touches. Everything it does comes from the
+// app's arguments and its own config file
 export type RcloneRunner = (args: string[], options?: { onOutput?: (text: string) => void; signal?: AbortSignal }) => Promise<RcloneOutput>;
 
 export const rcloneRunner =
   (executable: string): RcloneRunner =>
   (args, { onOutput, signal } = {}) =>
     new Promise((resolve, reject) => {
-      const child = spawn(executable, args, { signal, windowsHide: true });
+      const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.toUpperCase().startsWith("RCLONE_")));
+      const child = spawn(executable, args, { signal, windowsHide: true, env });
       let stdout = "";
       let stderr = "";
       child.stdout.on("data", (chunk: Buffer) => {

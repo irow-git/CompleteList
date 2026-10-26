@@ -15,7 +15,13 @@ const api: ElectronApi = {
     remove: (id) => ipcRenderer.invoke("games:remove", id),
   },
   images: {
-    save: (image) => ipcRenderer.invoke("images:save", image),
+    save: (owner, image) => ipcRenderer.invoke("images:save", owner, image),
+    folder: () => ipcRenderer.invoke("images:folder"),
+    openFolder: () => ipcRenderer.invoke("images:openFolder"),
+  },
+  covers: {
+    list: (gameId) => ipcRenderer.invoke("covers:list", gameId),
+    remove: (id) => ipcRenderer.invoke("covers:remove", id),
   },
   imageSync: {
     status: () => ipcRenderer.invoke("imageSync:status"),

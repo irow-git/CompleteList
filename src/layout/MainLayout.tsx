@@ -50,21 +50,6 @@ const Main: React.FC<MainProps> = ({ children }) => {
               <div className="nav-item">Settings</div>
             </Link>
           </nav>
-
-          {isCardView && (
-            // Hidden rather than removed at the top, so the sidebar's bottom edge doesn't move
-            <div className={cn("mt-6 pl-[5px] text-left drop-shadow-[0px_1px_1px_black]", !scrolled && "invisible")}>
-              <button
-                type="button"
-                aria-label="Back to top"
-                title="Back to top"
-                onClick={() => main.current?.scrollTo({ top: 0, behavior: "smooth" })}
-                className="option-clip inline-flex size-9 cursor-pointer items-center justify-center bg-white text-ink hover:bg-sand"
-              >
-                <ArrowUp className="size-6" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* The torn bottom edge always sits at the very bottom: this area takes whatever height the nav leaves, and when
@@ -87,6 +72,21 @@ const Main: React.FC<MainProps> = ({ children }) => {
           {children}
         </main>
       </div>
+
+      {isCardView && (
+        // Hidden rather than removed at the top, so the sidebar's bottom edge doesn't move
+        <div className={cn("absolute bottom-5 left-5 opacity-30 mt-6 pl-[5px] text-left drop-shadow-[0px_1px_1px_black] hover:opacity-100", !scrolled && "invisible")}>
+          <button
+            type="button"
+            aria-label="Back to top"
+            title="Back to top"
+            onClick={() => main.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            className="option-clip inline-flex size-9 cursor-pointer items-center justify-center bg-white text-ink hover:bg-sand"
+          >
+            <ArrowUp className="size-6" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

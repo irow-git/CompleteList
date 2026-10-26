@@ -6,16 +6,18 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type { GameDetails } from "../../src/interfaces";
 import type { Db } from "../db";
-import { createGame, getGame, listGames, removeGame, updateGame } from "../db/games";
+import { createGame, getGame, listGames, removeCover, removeGame, updateGame } from "../db/games";
+import { coversForImageSync, listCovers } from "../db/covers";
 import * as schema from "../db/schema";
 import { resetSync, runSync, syncStatus } from "./engine";
-import type { PushRecord, RemoteMetadata, RemoteStore } from "./remote";
+import type { PushRecord, RemoteCover, RemoteMetadata, RemoteStore } from "./remote";
 
 // Stands in for Firestore. It has its own clock, unrelated to either device's, like Firestore's serverTimestamp()
 class FakeRemote implements RemoteStore {
   serverTime = 5_000;
   metadata = new Map<string, RemoteMetadata>();
   details = new Map<string, GameDetails>();
+  covers = new Map<string, RemoteCover & { serverUpdatedAt: number }>();
   beforePush?: () => void;
 
   async changedMetadataSince(checkpoint: number) {
@@ -36,6 +38,17 @@ class FakeRemote implements RemoteStore {
       if (details) this.details.set(meta.id, structuredClone(details));
       else this.details.delete(meta.id);
     }
+  }
+
+  async changedCoversSince(checkpoint: number) {
+    return [...this.covers.values()]
+      .filter((cover) => cover.serverUpdatedAt > checkpoint)
+      .sort((x, y) => x.serverUpdatedAt - y.serverUpdatedAt)
+      .map((cover) => structuredClone(cover));
+  }
+
+  async pushCovers(records: RemoteCover[]) {
+    for (const cover of records) this.covers.set(cover.id, { ...structuredClone(cover), serverUpdatedAt: ++this.serverTime });
   }
 }
 
@@ -221,4 +234,50 @@ test("status counts unsynced changes and remembers the last sync; reset starts o
 
   resetSync(a);
   expect(syncStatus(a, false)).toEqual({ configured: false, lastSyncedAt: null, pendingChanges: 2 });
+});
+
+test("cover history syncs: a cover added on one device reaches the other, and so does deleting it", async () => {
+  const cover = `${"ab".repeat(32)}.webp`;
+  setClock("2026-10-27T09:00:00Z");
+  const game = createGame(a, { ...details("Celeste"), cover_image: cover, DLCs: [] });
+  await runSync(a, remote);
+  await runSync(b, remote);
+
+  expect(listCovers(b, game.id).map((entry) => entry.image)).toEqual([cover]);
+  expect(coversForImageSync(b).live).toEqual([{ gameId: game.id, image: cover }]);
+
+  // Deleted on b (later) while it's the current cover: the game loses its cover too, on both devices
+  setClock("2026-10-27T10:00:00Z");
+  removeCover(b, listCovers(b, game.id)[0].id);
+  await runSync(b, remote);
+  await runSync(a, remote);
+  expect(listCovers(a, game.id)).toEqual([]);
+  expect(getGame(a, game.id)!.cover_image).toBeNull();
+  expect(coversForImageSync(a).deleted).toEqual([{ gameId: game.id, image: cover }]);
+});
+
+test("malformed cover entries from the cloud are ignored, since they turn into file paths", async () => {
+  const game = createGame(a, { ...details("Celeste"), DLCs: [] });
+  const image = `${"ab".repeat(32)}.png`;
+  const at = new Date("2026-10-27T09:00:00Z");
+  const entry = (gameId: string, image: string, id = `${gameId}:${image}`): RemoteCover => ({ id, gameId, image, createdAt: at, updatedAt: at, deletedAt: at });
+  await remote.pushCovers([
+    entry("../..", image),
+    entry(game.id, "../../etc/passwd"),
+    entry(`${game.id}/..`, image),
+    // A well-formed game and image under some other id
+    entry(game.id, image, "anything"),
+  ]);
+
+  await runSync(a, remote);
+  expect(coversForImageSync(a)).toEqual({ live: [], deleted: [] });
+});
+
+test("deleting a game deletes its covers, and their tombstones outlive the purged game", async () => {
+  const game = createGame(a, { ...details("Celeste"), cover_image: `${"cd".repeat(32)}.png`, DLCs: [] });
+  removeGame(a, game.id);
+  await runSync(a, remote);
+
+  expect(getGame(a, game.id)).toBeNull();
+  expect(coversForImageSync(a)).toEqual({ live: [], deleted: [{ gameId: game.id, image: `${"cd".repeat(32)}.png` }] });
 });

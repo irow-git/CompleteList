@@ -1,21 +1,10 @@
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { SyncResult } from "../../src/interfaces";
 import type { Db } from "../db";
-import { gameMetadata, games } from "../db/schema";
+import { coversForImageSync } from "../db/covers";
 import type { ImageSync } from "../images/imageSync";
 import { recordSync, runSync, syncStatus } from "./engine";
 import { connectFirestore } from "./firestore";
 import { isSyncConfigured, readAccount } from "./settings";
-
-// Covers of games that still exist: those are the images this computer should have
-const referencedImages = (db: Db) =>
-  db
-    .select({ ref: games.cover_image })
-    .from(games)
-    .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
-    .where(and(isNull(gameMetadata.deleted_at), isNotNull(games.cover_image)))
-    .all()
-    .map(({ ref }) => ref!);
 
 export function createSyncService(db: Db, imageSync: ImageSync) {
   // A second sync request while one is running gets the running one's result instead of starting another
@@ -30,7 +19,7 @@ export function createSyncService(db: Db, imageSync: ImageSync) {
     const result: SyncResult = account ? await runSync(db, await connectFirestore(account)) : { pushed: 0, pulled: 0, syncedAt: new Date() };
     if (imagesConnected) {
       try {
-        result.images = await imageSync.sync(referencedImages(db));
+        result.images = await imageSync.sync(coversForImageSync(db));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(account ? `Games synced, but images didn't. ${message}` : message);

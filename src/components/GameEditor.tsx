@@ -19,7 +19,7 @@ export const GameEditor: React.FC<{
 
   const addDLCField = () => {
     setBorderStylings((prevState) => [...prevState, createBorderStyling()]);
-    append(emptyGameFormValues);
+    append({ ...emptyGameFormValues, id: crypto.randomUUID() });
   };
 
   const removeDLCField = (index: number) => {

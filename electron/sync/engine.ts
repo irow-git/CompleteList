@@ -2,10 +2,11 @@ import { and, count, eq, inArray, isNotNull } from "drizzle-orm";
 import type { SyncResult, SyncStatus } from "../../src/interfaces";
 import type { Db } from "../db";
 import { detailsOf } from "../db/games";
-import { gameMetadata, games, syncState } from "../db/schema";
-import type { PushRecord, RemoteStore } from "./remote";
+import { covers, gameMetadata, games, syncState } from "../db/schema";
+import { coverId, isImageRef, isOwnerId } from "../../src/lib/imageRef";
+import type { PushRecord, RemoteCover, RemoteStore } from "./remote";
 
-type SyncKey = "checkpoint" | "lastSyncedAt";
+type SyncKey = "checkpoint" | "coverCheckpoint" | "lastSyncedAt";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -20,6 +21,7 @@ export function resetSync(db: Db) {
   db.transaction((tx) => {
     tx.delete(syncState).run();
     tx.update(gameMetadata).set({ dirty: true }).run();
+    tx.update(covers).set({ dirty: true }).run();
   });
 }
 
@@ -29,7 +31,8 @@ export const recordSync = (db: Db, at: Date) => writeState(db, "lastSyncedAt", S
 export function syncStatus(db: Db, configured: boolean): SyncStatus {
   const lastSyncedAt = readState(db, "lastSyncedAt");
   const [{ pending }] = db.select({ pending: count() }).from(gameMetadata).where(eq(gameMetadata.dirty, true)).all();
-  return { configured, lastSyncedAt: lastSyncedAt ? new Date(Number(lastSyncedAt)) : null, pendingChanges: pending };
+  const [{ pendingCovers }] = db.select({ pendingCovers: count() }).from(covers).where(eq(covers.dirty, true)).all();
+  return { configured, lastSyncedAt: lastSyncedAt ? new Date(Number(lastSyncedAt)) : null, pendingChanges: pending + pendingCovers };
 }
 
 // Applies remote changes that are newer than the local copy (last write wins, by updated_at) and returns how many
@@ -119,6 +122,61 @@ async function push(db: Db, remote: RemoteStore): Promise<number> {
   return records.length;
 }
 
+// Cover history: the same last-write-wins pull and push as the games, with its own checkpoint. Entries for games this
+// computer doesn't have are kept too (their tombstones still tell the image sync which files to delete)
+async function pullCovers(db: Db, remote: RemoteStore): Promise<number> {
+  const checkpoint = Number(readState(db, "coverCheckpoint") ?? 0);
+  const changed = await remote.changedCoversSince(checkpoint);
+  if (changed.length === 0) return 0;
+
+  const local = new Map(
+    db
+      .select({ id: covers.id, updatedAt: covers.updated_at })
+      .from(covers)
+      .where(inArray(covers.id, changed.map((cover) => cover.id)))
+      .all()
+      .map((row) => [row.id, row.updatedAt.getTime()])
+  );
+  let applied = 0;
+  db.transaction((tx) => {
+    for (const cover of changed) {
+      if (cover.updatedAt.getTime() <= (local.get(cover.id) ?? -Infinity)) continue;
+      // Only well-formed entries: their game id and image become file paths in the image sync
+      if (!isOwnerId(cover.gameId) || !isImageRef(cover.image) || cover.id !== coverId(cover.gameId, cover.image)) continue;
+      const row = { game_id: cover.gameId, image: cover.image, created_at: cover.createdAt, updated_at: cover.updatedAt, deleted_at: cover.deletedAt, dirty: false };
+      tx.insert(covers).values({ id: cover.id, ...row }).onConflictDoUpdate({ target: covers.id, set: row }).run();
+      applied++;
+    }
+    const newCheckpoint = changed.reduce((latest, cover) => Math.max(latest, cover.serverUpdatedAt), checkpoint);
+    writeState(tx, "coverCheckpoint", String(newCheckpoint));
+  });
+  return applied;
+}
+
+async function pushCovers(db: Db, remote: RemoteStore): Promise<number> {
+  const records: RemoteCover[] = db
+    .select()
+    .from(covers)
+    .where(eq(covers.dirty, true))
+    .all()
+    .map((cover) => ({
+      id: cover.id,
+      gameId: cover.game_id,
+      image: cover.image,
+      createdAt: cover.created_at,
+      updatedAt: cover.updated_at,
+      deletedAt: cover.deleted_at,
+    }));
+  if (records.length === 0) return 0;
+  await remote.pushCovers(records);
+  db.transaction((tx) => {
+    for (const record of records) {
+      tx.update(covers).set({ dirty: false }).where(and(eq(covers.id, record.id), eq(covers.updated_at, record.updatedAt))).run();
+    }
+  });
+  return records.length;
+}
+
 // Tombstones only exist so a deletion reaches the cloud; once it has, the rows can go
 function purgeSyncedTombstones(db: Db) {
   const synced = db
@@ -130,8 +188,9 @@ function purgeSyncedTombstones(db: Db) {
 
 // Pull first, so a newer remote edit wins over an older local one before anything is uploaded
 export async function runSync(db: Db, remote: RemoteStore): Promise<SyncResult> {
-  const pulled = await pull(db, remote);
-  const pushed = await push(db, remote);
+  // Games before their covers, so a cover's game is usually there by the time the cover arrives
+  const pulled = (await pull(db, remote)) + (await pullCovers(db, remote));
+  const pushed = (await push(db, remote)) + (await pushCovers(db, remote));
   purgeSyncedTombstones(db);
 
   const syncedAt = new Date();

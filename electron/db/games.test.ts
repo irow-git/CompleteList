@@ -6,7 +6,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type { GameDetails } from "../../src/interfaces";
 import type { Db } from ".";
-import { createGame, getGame, listCheckpoints, listGames, removeGame, updateGame } from "./games";
+import { createGame, getGame, listCheckpoints, listGames, removeCover, removeGame, updateGame } from "./games";
+import { listCovers } from "./covers";
 import * as schema from "./schema";
 
 const details = (title: string): GameDetails => ({
@@ -248,6 +249,27 @@ test("sorts and rules by score and hours, games without them last", () => {
   expect(ruler("score", "desc")).toEqual(["90×3", "70×2", "none×1"]);
   // Each range is over its bound: 250 is still in 100–250, 10.5 is over 10
   expect(ruler("hours", "asc")).toEqual(["0×1", "10×1", "50×1", "100×1", "9000×1", "none×1"]);
+});
+
+test("the form's ids are used, every saved cover joins the history, and deleting the current one clears it", () => {
+  const id = "0b8f1c2e-4d5a-4b6c-8d7e-9f0a1b2c3d4e";
+  const dlcId = "1c9e2d3f-5e6b-4c7d-9e8f-0a1b2c3d4e5f";
+  const [first, second] = [`${"ab".repeat(32)}.webp`, `${"cd".repeat(32)}.webp`];
+  const game = createGame(db, { ...details("Celeste"), id, cover_image: first, DLCs: [{ ...details("Farewell"), id: dlcId }] });
+  expect([game.id, game.DLCs[0].id]).toEqual([id, dlcId]);
+  // Not a UUID, or already taken: a fresh id instead
+  expect(createGame(db, { ...details("Other"), id: "../x", DLCs: [] }).id).not.toBe("../x");
+  expect(createGame(db, { ...details("Another"), id, DLCs: [] }).id).not.toBe(id);
+
+  updateGame(db, { ...game, cover_image: second });
+  expect(listCovers(db, id).map((cover) => cover.image).sort()).toEqual([first, second].sort());
+
+  removeCover(db, listCovers(db, id).find((cover) => cover.image === second)!.id);
+  expect(getGame(db, id)!.cover_image).toBeNull();
+  expect(listCovers(db, id).map((cover) => cover.image)).toEqual([first]);
+  // Saving a deleted cover again brings it back
+  updateGame(db, { ...getGame(db, id)!, cover_image: second });
+  expect(listCovers(db, id)).toHaveLength(2);
 });
 
 test("update adds, edits and removes DLCs, touching only changed rows", () => {

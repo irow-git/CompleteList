@@ -5,6 +5,7 @@ import type {
   FirebaseSettingsInput,
   GamePage,
   GameUpdate,
+  CoverEntry,
   IGame,
   ImageInput,
   ImageSyncProviderId,
@@ -31,8 +32,20 @@ export interface ElectronApi {
     remove(id: string): Promise<void>;
   };
   images: {
-    // Stores the picture (once, however often it's saved) and returns the reference to put on a game
-    save(image: ImageInput): Promise<string>;
+    // Stores the picture in the folder of the game or DLC it's for (once, however often it's saved) and returns the
+    // reference to put on it
+    save(owner: string, image: ImageInput): Promise<string>;
+    // Where the covers are kept on this computer
+    folder(): Promise<string>;
+    // Opens that folder in the system's file manager; rejects with the reason if it can't
+    openFolder(): Promise<void>;
+  };
+  covers: {
+    // Every cover a game or DLC has been saved with, newest first
+    list(gameId: string): Promise<CoverEntry[]>;
+    // Deletes one from the history (and its files; the cloud copy at the next sync). A game whose current cover it
+    // was goes back to having none
+    remove(id: string): Promise<void>;
   };
   imageSync: {
     status(): Promise<ImageSyncStatus>;

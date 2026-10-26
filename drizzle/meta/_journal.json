@@ -29,6 +29,13 @@
       "when": 1793041531258,
       "tag": "0003_score_hours",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793048029007,
+      "tag": "0004_covers",
+      "breakpoints": true
     }
   ]
 }

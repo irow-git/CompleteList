@@ -1,7 +1,8 @@
 import { and, count, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import Fuse from "fuse.js";
 import { formatDay } from "../../src/lib/dates";
-import { isImageRef } from "../../src/lib/imageRef";
+import { isImageRef, isOwnerId } from "../../src/lib/imageRef";
+import { deleteCoversOf, recordCover } from "./covers";
 import { toScore } from "../../src/lib/score";
 import { HOURS_RANGES, toHours } from "../../src/lib/hours";
 import type {
@@ -17,7 +18,7 @@ import type {
   SortableField,
 } from "../../src/interfaces";
 import type { Db } from ".";
-import { gameMetadata, games } from "./schema";
+import { covers, gameMetadata, games } from "./schema";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type GameRow = typeof games.$inferSelect;
@@ -99,9 +100,15 @@ const liveRows = (tx: Db | Tx, where?: ReturnType<typeof eq>) =>
     .all()
     .map((row) => row.game);
 
-const insertRow = (tx: Tx, details: GameDetails, parentId: string | null, now: Date) => {
-  const row = tx.insert(games).values({ ...detailsOf(details), parent_id: parentId }).returning().get();
+// The form gives new games and DLCs their ids up front (their covers are stored under that id before they're saved);
+// anything else gets a fresh one
+const usableId = (tx: Tx, id: string | undefined) =>
+  isOwnerId(id) && !tx.select({ id: games.id }).from(games).where(eq(games.id, id)).get() ? id : undefined;
+
+const insertRow = (tx: Tx, details: GameDetails & { id?: string }, parentId: string | null, now: Date) => {
+  const row = tx.insert(games).values({ ...detailsOf(details), id: usableId(tx, details.id), parent_id: parentId }).returning().get();
   tx.insert(gameMetadata).values({ game_id: row.id, created_at: now, updated_at: now }).run();
+  recordCover(tx, row.id, row.cover_image, now);
   return row;
 };
 
@@ -305,6 +312,7 @@ export function updateGame(db: Db, game: GameUpdate): IGame {
     if (!sameDetails(base, game)) {
       tx.update(games).set(detailsOf(game)).where(eq(games.id, base.id)).run();
       markChanged(tx, [base.id], now);
+      recordCover(tx, base.id, detailsOf(game).cover_image, now);
     }
 
     const existing = new Map(liveRows(tx, eq(games.parent_id, base.id)).map((dlc) => [dlc.id, dlc]));
@@ -315,13 +323,33 @@ export function updateGame(db: Db, game: GameUpdate): IGame {
       } else if (!sameDetails(current, dlc)) {
         tx.update(games).set(detailsOf(dlc)).where(eq(games.id, current.id)).run();
         markChanged(tx, [current.id], now);
+        recordCover(tx, current.id, detailsOf(dlc).cover_image, now);
       }
     }
 
     const kept = new Set(game.DLCs.map((dlc) => dlc.id));
-    markChanged(tx, [...existing.keys()].filter((id) => !kept.has(id)), now, true);
+    const removed = [...existing.keys()].filter((id) => !kept.has(id));
+    markChanged(tx, removed, now, true);
+    deleteCoversOf(tx, removed, now);
 
     return toGame(liveRows(tx, eq(games.id, base.id))[0], liveRows(tx, eq(games.parent_id, base.id)));
+  });
+}
+
+// Deletes a cover from a game's history. If it's the game's current cover, the game goes back to having none. Returns
+// whose cover it was, so the caller can remove the files
+export function removeCover(db: Db, id: string): { gameId: string; image: string } | null {
+  return db.transaction((tx) => {
+    const cover = tx.select().from(covers).where(and(eq(covers.id, id), isNull(covers.deleted_at))).get();
+    if (!cover) return null;
+    const now = new Date();
+    tx.update(covers).set({ deleted_at: now, updated_at: now, dirty: true }).where(eq(covers.id, id)).run();
+    const current = tx.select({ image: games.cover_image }).from(games).where(eq(games.id, cover.game_id)).get();
+    if (current?.image === cover.image) {
+      tx.update(games).set({ cover_image: null }).where(eq(games.id, cover.game_id)).run();
+      markChanged(tx, [cover.game_id], now);
+    }
+    return { gameId: cover.game_id, image: cover.image };
   });
 }
 
@@ -329,6 +357,8 @@ export function updateGame(db: Db, game: GameUpdate): IGame {
 export function removeGame(db: Db, id: string): void {
   db.transaction((tx) => {
     const dlcIds = liveRows(tx, eq(games.parent_id, id)).map((dlc) => dlc.id);
-    markChanged(tx, [id, ...dlcIds], new Date(), true);
+    const now = new Date();
+    markChanged(tx, [id, ...dlcIds], now, true);
+    deleteCoversOf(tx, [id, ...dlcIds], now);
   });
 }

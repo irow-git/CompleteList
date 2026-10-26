@@ -23,10 +23,23 @@ export interface PushRecord {
   details: GameDetails | null;
 }
 
+// One entry of a game's cover history (see the covers table). Tombstones have deletedAt set
+export interface RemoteCover {
+  id: string;
+  gameId: string;
+  image: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
 export interface RemoteStore {
   // Metadata stored after the checkpoint (server time, ms), oldest first
   changedMetadataSince(checkpoint: number): Promise<RemoteMetadata[]>;
   // Details by id; ids that have none (deleted meanwhile) are missing from the result
   fetchDetails(ids: string[]): Promise<Map<string, GameDetails>>;
   push(records: PushRecord[]): Promise<void>;
+  // Cover history entries stored after the checkpoint (server time, ms), oldest first
+  changedCoversSince(checkpoint: number): Promise<(RemoteCover & { serverUpdatedAt: number })[]>;
+  pushCovers(records: RemoteCover[]): Promise<void>;
 }

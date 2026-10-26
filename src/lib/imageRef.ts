@@ -4,3 +4,11 @@
 export const IMAGE_REF = /^[a-f0-9]{64}\.(png|jpg|webp|gif)$/;
 
 export const isImageRef = (value: unknown): value is string => typeof value === "string" && IMAGE_REF.test(value);
+
+// Covers live in a folder per game or DLC, named by its id (a UUID). Checked wherever a folder name is built from an
+// id, so nothing can point outside the images folder
+const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isOwnerId = (value: unknown): value is string => typeof value === "string" && OWNER_ID.test(value);
+
+// A cover's id: one row per game and image, the same on every computer
+export const coverId = (gameId: string, image: string) => `${gameId}:${image}`;

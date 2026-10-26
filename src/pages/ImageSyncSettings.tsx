@@ -36,6 +36,7 @@ const ImageSyncSettings: React.FC = () => {
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [imagesFolder, setImagesFolder] = useState("");
 
   const apply = useCallback((next: ImageSyncStatus) => {
     setStatus(next);
@@ -46,6 +47,7 @@ const ImageSyncSettings: React.FC = () => {
 
   useEffect(() => {
     window.api.imageSync.status().then(apply);
+    window.api.images.folder().then(setImagesFolder);
     return window.api.imageSync.onLoginUrl(setLoginUrl);
   }, [apply]);
 
@@ -86,6 +88,19 @@ const ImageSyncSettings: React.FC = () => {
         games: new covers are uploaded, and covers your games use but this computer doesn't have are downloaded. Nothing
         is ever deleted from the cloud.
       </p>
+
+      <div className="mb-8 flex max-w-[760px] flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-black/65">Covers on this computer:</span>
+        <code className="font-mono text-sm break-all normal-case">{imagesFolder}</code>
+        <div className="drop-shadow-[0px_1px_1px_black]">
+          <Button
+            className="form-control-clip"
+            onClick={() => window.api.images.openFolder().catch((error) => setMessage({ kind: "error", text: ipcErrorMessage(error) }))}
+          >
+            Open folder
+          </Button>
+        </div>
+      </div>
 
       <Step number={1} title="Install rclone" done={!!status.rclone}>
         {status.rclone ? (
