@@ -1,14 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { IGame } from "../interfaces";
 import { useGamesStore } from "../store/gamesStore";
 import { GameActions } from "@/components/games/GameActions";
 import { GameListToolbar } from "@/components/games/GameListToolbar";
 import { formatDay } from "@/lib/dates";
+import { imageUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
-// Placeholder covers until games have images: the title's first letter on a colour picked from the title,
-// so a game keeps the same colour between visits
+// Games without a cover (or whose image isn't on this computer yet) get a placeholder: the title's first letter on a
+// colour picked from the title, so a game keeps the same colour between visits
 const COVER_COLORS = ["#47434d", "#7e768a", "#555559", "#6b5d52", "#4e5b63", "#5f4b57", "#3f5246"];
 
 const coverColor = (title: string) => {
@@ -23,6 +24,9 @@ const Badge: React.FC<{ className?: string; children: React.ReactNode }> = ({ cl
 
 const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
   const dlcCount = game.DLCs.length;
+  // e.g. a cover set on another computer whose file hasn't been synced here
+  const [coverMissing, setCoverMissing] = useState(false);
+  const showCover = game.cover_image && !coverMissing;
 
   return (
     <article className="group relative drop-shadow-[1px_2px_3px_black]">
@@ -31,9 +35,19 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
           className="relative aspect-[3/4]"
           style={{ background: `linear-gradient(0deg, black 0%, ${coverColor(game.title)} 100%)` }}
         >
-          <span aria-hidden className="absolute inset-0 flex items-center justify-center font-pixel text-[96px] text-white/85">
-            {game.title.trim().charAt(0).toUpperCase()}
-          </span>
+          {showCover ? (
+            <img
+              src={imageUrl(game.cover_image!, "thumb")}
+              alt=""
+              loading="lazy"
+              onError={() => setCoverMissing(true)}
+              className="absolute inset-0 size-full object-cover"
+            />
+          ) : (
+            <span aria-hidden className="absolute inset-0 flex items-center justify-center font-pixel text-[96px] text-white/85">
+              {game.title.trim().charAt(0).toUpperCase()}
+            </span>
+          )}
           <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
             {game.service && <Badge className="text-green-700">Service</Badge>}
             {game.free_to_play && <Badge>Free to play</Badge>}

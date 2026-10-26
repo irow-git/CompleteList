@@ -1,6 +1,7 @@
 import { and, count, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import Fuse from "fuse.js";
 import { formatDay } from "../../src/lib/dates";
+import { isImageRef } from "../../src/lib/imageRef";
 import type {
   GameDetails,
   GamePage,
@@ -29,6 +30,7 @@ export const detailsOf = (game: GameDetails): GameDetails => ({
   free_to_play: game.free_to_play,
   service: game.service,
   comment: game.comment,
+  cover_image: isImageRef(game.cover_image) ? game.cover_image : null,
 });
 
 const sameDetails = (a: GameDetails, b: GameDetails) => JSON.stringify(detailsOf(a)) === JSON.stringify(detailsOf(b));

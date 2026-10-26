@@ -10,6 +10,8 @@ export interface GameDetails {
   free_to_play: boolean;
   service: boolean;
   comment: string;
+  // Reference to the cover image in the local image store (see src/lib/imageRef.ts), or null
+  cover_image: string | null;
 }
 
 export interface IDLC extends GameDetails {
@@ -59,6 +61,13 @@ export interface GamePage {
   counts: { games: number; dlcs: number };
 }
 
+// A picture handed to the main process to store: the original file's bytes plus a small WebP thumbnail made from it
+export interface ImageInput {
+  type: string; // MIME type of `data`
+  data: Uint8Array;
+  thumbnail: Uint8Array;
+}
+
 // The web app config from the Firebase console (Project settings → Your apps)
 export interface FirebaseConfig {
   apiKey: string;
@@ -93,4 +102,25 @@ export interface SyncResult {
   pushed: number;
   pulled: number;
   syncedAt: Date;
+  // Only when image sync is connected
+  images?: ImageSyncResult;
+}
+
+export type ImageSyncProviderId = "drive" | "pcloud";
+
+export interface ImageSyncStatus {
+  // The rclone the app found (or was pointed at), or null if there's none it can run
+  rclone: { path: string; version: string } | null;
+  // The path set in settings, if any (otherwise rclone is looked up on PATH and the usual install folders)
+  customRclonePath: string | null;
+  // Connected storage, or null
+  provider: ImageSyncProviderId | null;
+  folder: string;
+}
+
+export interface ImageSyncResult {
+  uploaded: number;
+  downloaded: number;
+  // Used by a game here but not in the cloud yet (e.g. picked on a computer that hasn't synced since)
+  missing: number;
 }

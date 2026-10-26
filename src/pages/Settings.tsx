@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSyncStore } from "@/store/syncStore";
 import { ipcErrorMessage } from "@/lib/ipcError";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ImageSyncSettings from "./ImageSyncSettings";
 
 type SettingsFormValues = FirebaseConfig & { email: string; password: string; createAccount: boolean };
 
@@ -59,7 +61,7 @@ service cloud.firestore {
   }
 }`;
 
-const Settings: React.FC = () => {
+const GameSyncSettings: React.FC = () => {
   const refreshSync = useSyncStore((state) => state.refresh);
   // undefined while loading
   const [saved, setSaved] = useState<FirebaseSettings | null | undefined>(undefined);
@@ -113,11 +115,11 @@ const Settings: React.FC = () => {
     refreshSync();
   };
 
-  if (saved === undefined) return <Panel />;
+  if (saved === undefined) return null;
 
   return (
-    <Panel className="font-chava text-base">
-      <div className="p-5 text-start">
+    <div>
+      <div>
         <h2 className="mb-2 font-pixel text-xl">Cloud sync</h2>
         <p className="mb-6 max-w-[720px] text-black/65">
           Everything works offline. To sync between computers, connect your own Firebase project: create a web app
@@ -228,8 +230,25 @@ const Settings: React.FC = () => {
         <p className="mb-3 text-black/65">Each account can only read and write its own games:</p>
         <pre className="overflow-x-auto bg-dirty-white p-4 font-mono text-sm leading-normal select-all">{RULES}</pre>
       </div>
-    </Panel>
+    </div>
   );
 };
+
+const Settings: React.FC = () => (
+  <Panel className="font-chava text-base">
+    <Tabs defaultValue="games" className="p-5 pt-0 text-start">
+      <TabsList>
+        <TabsTrigger value="games">Game sync</TabsTrigger>
+        <TabsTrigger value="images">Image sync</TabsTrigger>
+      </TabsList>
+      <TabsContent value="games">
+        <GameSyncSettings />
+      </TabsContent>
+      <TabsContent value="images">
+        <ImageSyncSettings />
+      </TabsContent>
+    </Tabs>
+  </Panel>
+);
 
 export default Settings;

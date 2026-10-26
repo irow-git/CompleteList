@@ -18,6 +18,7 @@ export const games = sqliteTable(
     free_to_play: integer({ mode: "boolean" }).notNull().default(false),
     service: integer({ mode: "boolean" }).notNull().default(false),
     comment: text().notNull().default(""),
+    cover_image: text(), // see src/lib/imageRef.ts
   },
   (table) => [index("games_parent_id_idx").on(table.parent_id)]
 );

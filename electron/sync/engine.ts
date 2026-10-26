@@ -23,6 +23,9 @@ export function resetSync(db: Db) {
   });
 }
 
+// For a sync that only did images (no Firebase project connected)
+export const recordSync = (db: Db, at: Date) => writeState(db, "lastSyncedAt", String(at.getTime()));
+
 export function syncStatus(db: Db, configured: boolean): SyncStatus {
   const lastSyncedAt = readState(db, "lastSyncedAt");
   const [{ pending }] = db.select({ pending: count() }).from(gameMetadata).where(eq(gameMetadata.dirty, true)).all();

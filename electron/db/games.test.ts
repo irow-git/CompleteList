@@ -20,6 +20,7 @@ const details = (title: string): GameDetails => ({
   free_to_play: false,
   service: false,
   comment: "",
+  cover_image: null,
 });
 
 const metadataOf = (db: Db, id: string) =>
@@ -164,6 +165,15 @@ test("title order ignores a leading \"The\" or \"A\"", () => {
 
   expect(titles()).toEqual(expected);
   expect(titles([{ field: "title", direction: "desc" }])).toEqual([...expected].reverse());
+});
+
+test("covers keep valid image references and drop anything else", () => {
+  const ref = `${"ab".repeat(32)}.jpg`;
+  const game = createGame(db, { ...details("Witcher 3"), cover_image: ref, DLCs: [{ ...details("Blood and Wine"), cover_image: "../../secret.png" }] });
+
+  expect(game.cover_image).toBe(ref);
+  expect(game.DLCs[0].cover_image).toBeNull();
+  expect(updateGame(db, { ...game, cover_image: null }).cover_image).toBeNull();
 });
 
 test("update adds, edits and removes DLCs, touching only changed rows", () => {

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ImagePicker } from "./ImagePicker";
 import { useEffect, useState } from "react";
 import { GameDetails, GameUpdate } from "../interfaces";
 
@@ -25,6 +26,7 @@ export const emptyGameFormValues: GameFormValues = {
   free_to_play: false,
   service: false,
   comment: "",
+  cover_image: null,
 };
 
 const checkboxFields = [
@@ -199,6 +201,14 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
 
       <FormItem label="Comment" htmlFor={id("comment")}>
         <Textarea id={id("comment")} rows={3} maxLength={300} className="form-control-clip-large" {...register(name("comment"))} />
+      </FormItem>
+
+      <FormItem label="Cover" htmlFor={id("cover_image")}>
+        <Controller
+          control={control}
+          name={name("cover_image")}
+          render={({ field }) => <ImagePicker id={id("cover_image")} value={field.value} onChange={field.onChange} />}
+        />
       </FormItem>
     </div>
   );

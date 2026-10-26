@@ -58,6 +58,7 @@ const details = (title: string, extra: Partial<GameDetails> = {}): GameDetails =
   free_to_play: false,
   service: false,
   comment: "",
+  cover_image: null,
   ...extra,
 });
 

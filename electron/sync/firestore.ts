@@ -18,6 +18,7 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore/lite";
 import type { FirebaseConfig, GameDetails } from "../../src/interfaces";
+import { isImageRef } from "../../src/lib/imageRef";
 import type { PushRecord, RemoteMetadata, RemoteStore } from "./remote";
 
 // Everything lives under users/{uid}, split in two so a sync reads the cheap part first:
@@ -107,6 +108,7 @@ const toDetails = (data: Record<string, unknown>): GameDetails => ({
   free_to_play: Boolean(data.free_to_play),
   service: Boolean(data.service),
   comment: String(data.comment ?? ""),
+  cover_image: isImageRef(data.cover_image) ? data.cover_image : null,
 });
 
 function firestoreRemote(firestore: Firestore, uid: string): RemoteStore {
