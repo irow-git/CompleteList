@@ -54,6 +54,18 @@ export interface PageRequest {
   search?: string;
 }
 
+// What the card view's ruler marks: titles' first letters, or the year of a date
+export type CheckpointKind = "letter" | "release_date" | "last_completion";
+
+export type CheckpointRequest = Pick<PageRequest, "sort" | "search"> & { kind: CheckpointKind };
+
+// A run of consecutive games (in the list's order) sharing a letter or year, and where it starts in the list
+export interface Checkpoint {
+  label: string; // "A"…"Z", "#" for anything else; a year, or "" for games without that date
+  index: number;
+  count: number;
+}
+
 export interface GamePage {
   games: IGame[];
   total: number; // base games across all pages (matching ones, while searching)

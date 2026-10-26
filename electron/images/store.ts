@@ -5,7 +5,7 @@ import type { ImageInput } from "../../src/interfaces";
 import { isImageRef } from "../../src/lib/imageRef";
 
 const EXTENSIONS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
-const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
 
 // The bytes each format starts with, so a file can't claim to be an image it isn't
@@ -34,7 +34,7 @@ export function saveImage(dir: string, input: ImageInput): string {
 
   const data = Buffer.from(input.data);
   const thumbnail = Buffer.from(input.thumbnail);
-  if (data.length === 0 || data.length > MAX_IMAGE_BYTES) throw new Error("Images can be up to 25 MB.");
+  if (data.length === 0 || data.length > MAX_IMAGE_BYTES) throw new Error("Images can be up to 4 MB.");
   if (!SIGNATURES[extension](data)) throw new Error("That file isn't a valid image.");
   if (thumbnail.length > MAX_THUMBNAIL_BYTES || !SIGNATURES.webp(thumbnail)) throw new Error("The thumbnail couldn't be created.");
 

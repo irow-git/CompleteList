@@ -175,7 +175,8 @@ const TableView: React.FC = () => {
 
   // Coming from the card view the store holds several scrolled-through pages; the table shows one at a time
   useEffect(() => {
-    if (infinite || status === "idle") loadPage(0);
+    // ...and it goes back to the page it was on when you left it
+    if (infinite || status === "idle") loadPage(useGamesStore.getState().tablePage);
   }, [infinite, status, loadPage]);
 
   // Paging, sorting and search happen in the database: the store holds one page, and changes ask it for another

@@ -4,6 +4,8 @@ import { formatDay } from "../../src/lib/dates";
 import { isImageRef } from "../../src/lib/imageRef";
 import type {
   GameDetails,
+  Checkpoint,
+  CheckpointRequest,
   GamePage,
   GameSort,
   GameUpdate,
@@ -42,11 +44,12 @@ const toGame = (base: GameRow, dlcs: GameRow[]): IGame => ({
 });
 
 // Titles sort without a leading "The " or "A " ("The Witcher 3" under W), ignoring case. LIKE is case-insensitive
-const sortableTitle = sql`(case
+const titleWithoutArticle = sql`(case
   when ${games.title} like 'the %' then substr(${games.title}, 5)
   when ${games.title} like 'a %' then substr(${games.title}, 3)
   else ${games.title}
-end) collate nocase`;
+end)`;
+const sortableTitle = sql`${titleWithoutArticle} collate nocase`;
 
 // By title, with the id as a tiebreaker so pages never overlap
 const listOrder = [sortableTitle, games.id];
@@ -196,6 +199,45 @@ export function listGames(db: Db, { page, pageSize, sort, search }: PageRequest)
   for (const dlc of dlcs) dlcsByParent.set(dlc.parent_id!, [...(dlcsByParent.get(dlc.parent_id!) ?? []), dlc]);
 
   return { games: bases.map((base) => toGame(base, dlcsByParent.get(base.id) ?? [])), total, counts: countGames(db) };
+}
+
+// The key a ruler checkpoint groups games by: the letter the title sorts under, or a date's year (null without one)
+const checkpointKey = {
+  letter: sql<string | null>`upper(substr(${titleWithoutArticle}, 1, 1))`,
+  release_date: sql<string | null>`strftime('%Y', ${games.release_date} / 1000, 'unixepoch')`,
+  last_completion: sql<string | null>`strftime('%Y', ${games.last_completion} / 1000, 'unixepoch')`,
+};
+
+// Where each letter or year starts in the list as it's currently sorted and searched, for the card view's ruler.
+// Consecutive games with the same key form one checkpoint, so it also follows descending sorts and puts games without
+// a date last, just like the list does
+export function listCheckpoints(db: Db, { sort, search, kind }: CheckpointRequest): Checkpoint[] {
+  if (!(kind in checkpointKey)) return [];
+  const query = search?.trim();
+  const matchingIds = query ? searchGameIds(db, query) : null;
+  if (matchingIds?.length === 0) return [];
+
+  const rows = db
+    .select({ id: games.id, key: checkpointKey[kind] })
+    .from(games)
+    .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
+    .where(and(isLive, isNull(games.parent_id), matchingIds ? inArray(games.id, matchingIds) : undefined))
+    .orderBy(...orderFor(sort))
+    .all();
+  // Without a sort, search results are in relevance order
+  if (matchingIds && !sort?.length) {
+    const rank = new Map(matchingIds.map((id, index) => [id, index]));
+    rows.sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+  }
+
+  const checkpoints: Checkpoint[] = [];
+  rows.forEach(({ key }, index) => {
+    const label = kind === "letter" ? (key && /^[A-Z]$/.test(key) ? key : "#") : (key ?? "");
+    const last = checkpoints.at(-1);
+    if (last?.label === label) last.count++;
+    else checkpoints.push({ label, index, count: 1 });
+  });
+  return checkpoints;
 }
 
 // Live base games and DLCs in the whole collection

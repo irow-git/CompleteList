@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type { GameDetails } from "../../src/interfaces";
 import type { Db } from ".";
-import { createGame, getGame, listGames, removeGame, updateGame } from "./games";
+import { createGame, getGame, listCheckpoints, listGames, removeGame, updateGame } from "./games";
 import * as schema from "./schema";
 
 const details = (title: string): GameDetails => ({
@@ -174,6 +174,35 @@ test("covers keep valid image references and drop anything else", () => {
   expect(game.cover_image).toBe(ref);
   expect(game.DLCs[0].cover_image).toBeNull();
   expect(updateGame(db, { ...game, cover_image: null }).cover_image).toBeNull();
+});
+
+test("ruler checkpoints follow the list's order: letters ignore The/A, years put games without a date last", () => {
+  const add = (title: string, year: number | null) =>
+    createGame(db, { ...details(title), release_date: year ? new Date(Date.UTC(year, 5, 1)) : null, DLCs: [] });
+  add("The Witcher 3", 2015);
+  add("Alan Wake", 2010);
+  add("A Short Hike", 2019);
+  add("8 Ball Pool", null);
+  add("Witness", 2016);
+  add("Braid", null);
+
+  expect(listCheckpoints(db, { kind: "letter", sort: [{ field: "title", direction: "asc" }] })).toEqual([
+    { label: "#", index: 0, count: 1 },
+    { label: "A", index: 1, count: 1 },
+    { label: "B", index: 2, count: 1 },
+    { label: "S", index: 3, count: 1 },
+    { label: "W", index: 4, count: 2 },
+  ]);
+  const years = (direction: "asc" | "desc") =>
+    listCheckpoints(db, { kind: "release_date", sort: [{ field: "release_date", direction }] }).map(({ label, count }) => `${label || "none"}×${count}`);
+  expect(years("asc")).toEqual(["2010×1", "2015×1", "2016×1", "2019×1", "none×2"]);
+  expect(years("desc")).toEqual(["2019×1", "2016×1", "2015×1", "2010×1", "none×2"]);
+  // The indexes line up with the list itself
+  const list = listGames(db, { page: 0, pageSize: 25, sort: [{ field: "release_date", direction: "desc" }] }).games;
+  expect(list[4].title).toBe("8 Ball Pool");
+  expect(listCheckpoints(db, { kind: "letter", sort: [{ field: "title", direction: "asc" }], search: "witcher" })).toEqual([
+    { label: "W", index: 0, count: 1 },
+  ]);
 });
 
 test("update adds, edits and removes DLCs, touching only changed rows", () => {

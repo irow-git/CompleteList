@@ -1,26 +1,27 @@
 import { useRef, useState } from "react";
-import { ACCEPTED_IMAGE_TYPES, imageUrl, prepareImage } from "@/lib/images";
+import { ACCEPTED_IMAGE_TYPES, checkImageFile, imageUrl } from "@/lib/images";
+import { CoverCropDialog } from "./CoverCropDialog";
 import { ipcErrorMessage } from "@/lib/ipcError";
 import { cn } from "@/lib/utils";
 
-// A cover picker: click to choose a file, drop one on it, or paste an image while it's focused.
-// The picture is stored as soon as it's picked; the form only holds its reference until it's submitted
+// A cover picker: click to choose a file, drop one on it, or paste an image while it's focused. The picture then
+// opens in the cropper, and the cropped cover is stored as soon as it's confirmed; the form only holds its reference
+// until it's submitted
 export const ImagePicker: React.FC<{ id?: string; value: string | null; onChange: (ref: string | null) => void }> = ({ id, value, onChange }) => {
   const fileInput = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
+  const [cropping, setCropping] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const store = async (file: File | null | undefined) => {
+  // Wrong type or too big is reported straight away, before the cropper opens
+  const store = (file: File | null | undefined) => {
     if (!file) return;
-    setBusy(true);
     setError(null);
     try {
-      onChange(await window.api.images.save(await prepareImage(file)));
+      checkImageFile(file);
+      setCropping(file);
     } catch (error) {
       setError(ipcErrorMessage(error));
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -30,7 +31,6 @@ export const ImagePicker: React.FC<{ id?: string; value: string | null; onChange
         <button
           id={id}
           type="button"
-          disabled={busy}
           onClick={() => fileInput.current?.click()}
           onDragOver={(event) => {
             event.preventDefault();
@@ -44,14 +44,12 @@ export const ImagePicker: React.FC<{ id?: string; value: string | null; onChange
           }}
           onPaste={(event) => store(event.clipboardData.files[0])}
           className={cn(
-            "option-clip relative flex aspect-[3/4] w-[120px] cursor-pointer items-center justify-center overflow-hidden bg-sand p-2 text-center text-xs text-black/45 disabled:cursor-wait",
+            "option-clip relative flex aspect-[2/3] w-[120px] cursor-pointer items-center justify-center overflow-hidden bg-sand p-2 text-center text-xs text-black/45",
             dragOver && "bg-sand-dark text-ink"
           )}
         >
           {value ? (
             <img src={imageUrl(value, "thumb")} alt="Cover" className="absolute inset-0 size-full object-cover" />
-          ) : busy ? (
-            "Saving…"
           ) : (
             "Choose, drop or paste an image"
           )}
@@ -65,6 +63,14 @@ export const ImagePicker: React.FC<{ id?: string; value: string | null; onChange
         )}
         {error && <p className="max-w-[220px] text-error">{error}</p>}
       </div>
+      <CoverCropDialog
+        file={cropping}
+        onCancel={() => setCropping(null)}
+        onDone={(ref) => {
+          setCropping(null);
+          onChange(ref);
+        }}
+      />
       <input
         ref={fileInput}
         type="file"

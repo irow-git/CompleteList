@@ -1,4 +1,6 @@
 import type {
+  Checkpoint,
+  CheckpointRequest,
   FirebaseSettings,
   FirebaseSettingsInput,
   GamePage,
@@ -23,6 +25,7 @@ export interface ElectronApi {
   games: {
     list(request: PageRequest): Promise<GamePage>;
     get(id: string): Promise<IGame | null>;
+    checkpoints(request: CheckpointRequest): Promise<Checkpoint[]>;
     create(game: NewGame): Promise<IGame>;
     update(game: GameUpdate): Promise<IGame>;
     remove(id: string): Promise<void>;

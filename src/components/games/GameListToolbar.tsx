@@ -8,7 +8,8 @@ import { forwardRef } from "react";
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 // The controls above the table and card views: collection totals, sync status, sorting and search
-export const GameListToolbar = forwardRef<HTMLDivElement>((_, ref) => {
+// `controls` are extra view-specific ones, shown before the sort menu (e.g. the card view's size slider)
+export const GameListToolbar = forwardRef<HTMLDivElement, { controls?: React.ReactNode }>(({ controls }, ref) => {
   const { counts, total, search } = useGamesStore(useShallow(({ counts, total, search }) => ({ counts, total, search })));
 
   return (
@@ -18,7 +19,8 @@ export const GameListToolbar = forwardRef<HTMLDivElement>((_, ref) => {
         {search && <span className="text-black/55"> · {total} matching</span>}
       </span>
       <SyncIndicator />
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
+        {controls}
         <SortMenu />
         <SearchBox />
       </div>

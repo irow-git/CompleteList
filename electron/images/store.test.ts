@@ -28,9 +28,9 @@ test("refuses files that aren't what they claim, unsupported types and oversized
   expect(() => saveImage(dir, { type: "image/jpeg", data: png, thumbnail: webp })).toThrow("isn't a valid image");
   expect(() => saveImage(dir, { type: "image/bmp", data: png, thumbnail: webp })).toThrow("PNG, JPEG, WebP or GIF");
   expect(() => saveImage(dir, { type: "image/png", data: png, thumbnail: png })).toThrow("thumbnail");
-  const huge = new Uint8Array(26 * 1024 * 1024);
+  const huge = new Uint8Array(5 * 1024 * 1024);
   huge.set(png);
-  expect(() => saveImage(dir, { type: "image/png", data: huge, thumbnail: webp })).toThrow("25 MB");
+  expect(() => saveImage(dir, { type: "image/png", data: huge, thumbnail: webp })).toThrow("4 MB");
   expect(fs.readdirSync(dir)).toEqual([]);
 });
 

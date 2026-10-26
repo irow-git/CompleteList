@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { useRulerShown } from "@/components/games/CardRuler";
+import { cn } from "@/lib/utils";
 
 type MainProps = {
   children?: React.ReactNode;
@@ -7,6 +9,8 @@ type MainProps = {
 // The layout is exactly the window's height and the page itself never scrolls; <main> scrolls when a page is taller.
 // That lets the table view give its panel exactly the space that's left, with the pagination fixed underneath
 const Main: React.FC<MainProps> = ({ children }) => {
+  const rulerShown = useRulerShown();
+
   return (
     <div className="flex h-screen overflow-hidden bg-sand-light text-sm leading-[normal]">
       <aside className="relative ml-6 flex h-full w-60 shrink-0 flex-col overflow-hidden bg-[linear-gradient(0deg,rgba(0,0,0,1)_0%,rgba(114,108,120,0.99)_100%)] text-white">
@@ -44,8 +48,11 @@ const Main: React.FC<MainProps> = ({ children }) => {
         <header className="h-fit text-[2.5em] leading-16 text-transparent [text-shadow:0px_4px_4px_#dedbd3,0_0_0_black,0px_4px_4px_#dedbd3]">
           Complete List - Video Games
         </header>
-        {/* Padding rather than margins, so the panels' drop shadows aren't cut off by the scroll area */}
-        <main className="flex min-h-0 flex-auto flex-col overflow-y-auto px-8 pt-4 pb-6 text-black/88">{children}</main>
+        {/* Padding rather than margins, so the panels' drop shadows aren't cut off by the scroll area. The left padding
+            widens to hold the card view's ruler while it's shown */}
+        <main className={cn("flex min-h-0 flex-auto flex-col overflow-y-auto pt-4 pr-6 pb-6 text-black/88", rulerShown ? "pl-12" : "pl-6")}>
+          {children}
+        </main>
       </div>
     </div>
   );

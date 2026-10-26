@@ -24,6 +24,11 @@ interface GamesState {
   page: number; // 0-based; in infinite mode, the last page loaded
   // The card view scrolls instead of paging: it starts at the first page and appends the next as you scroll
   infinite: boolean;
+  // Where each view was left, so coming back to it lands in the same place: the table's page, and how many pages the
+  // card view had loaded and how far it was scrolled
+  tablePage: number;
+  cardPage: number;
+  cardScroll: number;
   pageSize: number;
   total: number; // base games across all pages (matching ones, while searching)
   // Applied in order; empty means the default order (title, or relevance while searching)
@@ -38,6 +43,13 @@ interface GamesState {
   // Infinite mode: starts over at the first page, then loadMore appends the next one (if there is one)
   loadFirst(): Promise<void>;
   loadMore(): Promise<void>;
+  // Infinite mode, coming back to the card view: reloads every page it had loaded (in one request) unless they're
+  // still in the store, so cardScroll points at the same cards again
+  restoreCards(): Promise<void>;
+  setCardScroll(scroll: number): void;
+  // Infinite mode: makes sure the game at `index` is loaded, loading every page up to it in one request (the ruler
+  // jumping further down than the cards have scrolled)
+  loadUntil(index: number): Promise<void>;
   // Keeps the first game currently shown on screen, on whichever page it lands at the new size
   setPageSize(pageSize: number): Promise<void>;
   // Both go back to the first page, since the old page number means nothing in the new order
@@ -56,6 +68,9 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   games: [],
   page: 0,
   infinite: false,
+  tablePage: 0,
+  cardPage: 0,
+  cardScroll: 0,
   pageSize: savedPageSize(),
   total: 0,
   sort: [],
@@ -78,7 +93,7 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
         result = await window.api.games.list({ page, pageSize, sort, search });
       }
       if (request !== latestRequest) return;
-      set({ games: result.games, total: result.total, counts: result.counts, page, infinite: false, status: "ready" });
+      set({ games: result.games, total: result.total, counts: result.counts, page, tablePage: page, infinite: false, status: "ready" });
     } catch (error) {
       if (request !== latestRequest) return;
       set({ status: "error", error: String(error) });
@@ -92,7 +107,16 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
     try {
       const result = await window.api.games.list({ page: 0, pageSize, sort, search });
       if (request !== latestRequest) return;
-      set({ games: result.games, total: result.total, counts: result.counts, page: 0, infinite: true, status: "ready" });
+      set({
+        games: result.games,
+        total: result.total,
+        counts: result.counts,
+        page: 0,
+        cardPage: 0,
+        cardScroll: 0,
+        infinite: true,
+        status: "ready",
+      });
     } catch (error) {
       if (request !== latestRequest) return;
       set({ status: "error", error: String(error) });
@@ -112,8 +136,44 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
         total: result.total,
         counts: result.counts,
         page: page + 1,
+        cardPage: page + 1,
         status: "ready",
       });
+    } catch (error) {
+      if (request !== latestRequest) return;
+      set({ status: "error", error: String(error) });
+    }
+  },
+
+  restoreCards: async () => {
+    const { infinite, cardPage, pageSize, sort, search } = get();
+    if (infinite) return;
+    const request = ++latestRequest;
+    set({ status: "loading", error: undefined });
+    try {
+      const result = await window.api.games.list({ page: 0, pageSize: (cardPage + 1) * pageSize, sort, search });
+      if (request !== latestRequest) return;
+      // Fewer games than before (e.g. some were deleted) means fewer pages
+      const page = Math.max(0, Math.ceil(result.games.length / pageSize) - 1);
+      set({ games: result.games, total: result.total, counts: result.counts, page, cardPage: page, infinite: true, status: "ready" });
+    } catch (error) {
+      if (request !== latestRequest) return;
+      set({ status: "error", error: String(error) });
+    }
+  },
+
+  setCardScroll: (cardScroll) => set({ cardScroll }),
+
+  loadUntil: async (index) => {
+    const { infinite, games, total, pageSize, sort, search } = get();
+    if (!infinite || index < games.length || games.length >= total) return;
+    const pages = Math.ceil((index + 1) / pageSize);
+    const request = ++latestRequest;
+    set({ status: "loading", error: undefined });
+    try {
+      const result = await window.api.games.list({ page: 0, pageSize: pages * pageSize, sort, search });
+      if (request !== latestRequest) return;
+      set({ games: result.games, total: result.total, counts: result.counts, page: pages - 1, cardPage: pages - 1, status: "ready" });
     } catch (error) {
       if (request !== latestRequest) return;
       set({ status: "error", error: String(error) });
@@ -127,18 +187,21 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
     } catch {
       // Not saved; the size still applies until the app restarts
     }
-    const firstShown = get().page * get().pageSize;
-    set({ pageSize });
+    const { page, pageSize: oldSize, cardPage } = get();
+    const firstShown = page * oldSize;
+    // The card view keeps about as many games loaded as before, so its scroll position stays meaningful
+    set({ pageSize, cardPage: Math.max(0, Math.ceil(((cardPage + 1) * oldSize) / pageSize) - 1) });
     return get().infinite ? get().loadFirst() : get().loadPage(Math.floor(firstShown / pageSize));
   },
 
+  // A new order or search makes both views' remembered positions meaningless
   setSort: (sort) => {
-    set({ sort });
+    set({ sort, tablePage: 0, cardPage: 0, cardScroll: 0 });
     return get().infinite ? get().loadFirst() : get().loadPage(0);
   },
 
   setSearch: (search) => {
-    set({ search });
+    set({ search, tablePage: 0, cardPage: 0, cardScroll: 0 });
     return get().infinite ? get().loadFirst() : get().loadPage(0);
   },
 
