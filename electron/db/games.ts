@@ -117,6 +117,7 @@ const searchKeys = [
   "tags",
   "completion",
   "comment",
+  "labels",
   "releaseDate",
   "lastCompletion",
 ];
@@ -149,6 +150,10 @@ function searchGameIds(db: Db, search: string): string[] {
       tags: row.tags,
       completion: row.completion,
       comment: row.comment,
+      // The labels a card shows, so "service" or "free to play" find those games too
+      labels: [row.service ? "Service" : row.original_copy ? "Original" : null, row.free_to_play ? "Free to play" : null].filter(
+        (label): label is string => label !== null
+      ),
       releaseDate: searchableDay(row.release_date),
       lastCompletion: searchableDay(row.last_completion),
     }));

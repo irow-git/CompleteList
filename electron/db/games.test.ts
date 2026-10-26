@@ -142,6 +142,17 @@ test("fuzzy search tolerates typos, matches DLC titles and other fields, and pag
   expect(search("platformer", [{ field: "title", direction: "asc" }])).toEqual(["Celeste", "Hollow Knight"]);
 });
 
+test("the labels cards show are searchable: original, service and free to play", () => {
+  createGame(db, { ...details("Celeste"), original_copy: true, DLCs: [] });
+  createGame(db, { ...details("Destiny 2"), original_copy: true, service: true, free_to_play: true, DLCs: [] });
+  createGame(db, { ...details("Braid"), original_copy: false, DLCs: [] });
+  const search = (text: string) => listGames(db, { page: 0, pageSize: 25, search: text }).games.map((game) => game.title).sort();
+
+  expect(search("original")).toEqual(["Celeste"]);
+  expect(search("service")).toEqual(["Destiny 2"]);
+  expect(search("free to play")).toEqual(["Destiny 2"]);
+});
+
 test("dates are searchable as shown in the table or as YYYY-MM-DD, and numbers match exactly", () => {
   createGame(db, { ...details("Celeste"), release_date: new Date(Date.UTC(2018, 0, 25)), DLCs: [] });
   createGame(db, { ...details("Hades"), release_date: new Date(Date.UTC(2020, 8, 17)), last_completion: new Date(Date.UTC(2018, 2, 3)), DLCs: [] });

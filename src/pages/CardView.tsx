@@ -12,6 +12,7 @@ import { formatDay } from "@/lib/dates";
 import { imageUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 import { HIGHLIGHTED_TAGS } from "@/lib/tags";
+import { titleWithoutArticle } from "@/lib/titles";
 
 // Games without a cover (or whose image isn't on this computer yet) get a placeholder: the title's first letter on a
 // colour picked from the title, so a game keeps the same colour between visits
@@ -91,7 +92,7 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
             />
           ) : (
             <span aria-hidden className="absolute inset-0 flex items-center justify-center font-pixel text-[calc(var(--card-width)*0.45)] text-white/85">
-              {game.title.trim().charAt(0).toUpperCase()}
+              {titleWithoutArticle(game.title).charAt(0).toUpperCase()}
             </span>
           )}
           <div className="absolute top-2 right-2 left-2 flex flex-col items-start gap-1">
