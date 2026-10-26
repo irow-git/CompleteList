@@ -11,7 +11,7 @@ const AddGame: React.FC = () => {
 
   const onFinish = (values: AddGameFormValues) => {
     addGame(values).then(() => {
-      navigate('/');
+      navigate(-1);
     })
   };
 

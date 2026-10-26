@@ -108,7 +108,7 @@ export const Pagination: React.FC = () => {
 
   return (
     <nav aria-label="Pagination" className="h-full justify-between px-8 flex items-center font-pixel text-sm">
-      <div className="flex items-center gap-8">
+      <div className="my-4 flex items-center gap-8">
         {!compact && <PageInput page={page} pageCount={pageCount} onCommit={loadPage} />}
         <PageSizeMenu />
       </div>

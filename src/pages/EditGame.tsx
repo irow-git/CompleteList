@@ -21,7 +21,7 @@ const EditGame: React.FC = () => {
 
   const onFinish = (values: AddGameFormValues) => {
     updateGame({ ...values, id }).then(() => {
-      navigate("/");
+      navigate(-1);
     });
   };
 
