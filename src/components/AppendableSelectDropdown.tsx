@@ -191,7 +191,7 @@ const AppendableSelectDropdown: React.FC<{
           event.preventDefault();
           listRef.current?.focus();
         }}
-        className="form-control-clip-large w-(--radix-popover-trigger-width) rounded-none border-0 bg-popover px-1 pt-[22px] pb-1.5 font-pixel text-sm leading-[22px] text-popover-foreground shadow-none"
+        className="form-control-clip-large w-(--radix-popover-trigger-width) rounded-none border-0 bg-popover px-1 pt-[22px] pb-1.5 font-pixel text-sm leading-[22px] text-popover-foreground"
       >
         <div
           ref={listRef}

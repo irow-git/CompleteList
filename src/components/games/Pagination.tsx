@@ -1,22 +1,16 @@
 import { useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal } from "pixelarticons/react";
+import { ChevronLeft, ChevronRight, ChevronUp, MoreHorizontal } from "pixelarticons/react";
 import { PAGE_SIZES, useGamesStore } from "@/store/gamesStore";
 import { cn } from "@/lib/utils";
 import { Input } from "../ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
 const PAGE_CLUSTER = 5;
 const MAX_VISIBLE_WITHOUT_ELLIPSIS = 7;
 
 const paginationClassName = (callback: boolean) =>
-  cn("size-fit cursor-pointer text-[20px] flex items-center justify-center", callback ? "text-[22px] border-be-3 border-be-gray-400" : "hover:bg-muted");
+  cn("size-fit cursor-pointer text-[20px] flex items-center justify-center", callback ? "border-be-3 border-be-gray-400" : "hover:bg-muted");
 
 const arrowClassName = "size-fit cursor-pointer disabled:cursor-not-allowed disabled:text-gray-400";
 
@@ -25,19 +19,22 @@ const PageSizeMenu: React.FC = () => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex cursor-pointer items-center gap-1 text-[20px] outline-none hover:text-ink focus-visible:underline" aria-label="Games per page">
+      <DropdownMenuTrigger
+        className="inline-flex cursor-pointer items-center gap-1 text-[20px] outline-none"
+        aria-label="Games per page"
+      >
         {pageSize} per page
-        <ChevronDown className="size-6" />
+        <ChevronUp className="size-6" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="min-w-0 rounded-none border-0 border-t-[5px] border-ink bg-sand-light font-pixel">
-        <DropdownMenuRadioGroup value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
-          {PAGE_SIZES.map((size) => (
-            <DropdownMenuRadioItem key={size} value={String(size)} className="rounded-none text-base">
-              {size}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
+        <DropdownMenuContent side="top" align="end" alignOffset={-20} className="py-2 option-clip min-w-0 rounded-none bg-ink font-pixel">
+          <DropdownMenuRadioGroup value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
+            {PAGE_SIZES.map((size) => (
+              <DropdownMenuRadioItem key={size} value={String(size)} className="rounded-none text-white">
+                {size}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
     </DropdownMenu>
   );
 };
@@ -67,8 +64,7 @@ const PageInput: React.FC<{ page: number; pageCount: number; onCommit: (page: nu
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
-        type="number"
-        className="p-1 w-14 bg-dirty-black border-1 border-solid border-gray-400"
+        className="p-0 text-[20px] w-10 text-center bg-white border-b-3 border-b-solid border-b-gray-400"
       ></Input>
       &nbsp;of {pageCount}
     </p>
@@ -119,7 +115,7 @@ export const Pagination: React.FC = () => {
       {pageCount > 1 && (
         <div className="my-4 gap-4 flex justify-end">
           <button type="button" className={arrowClassName} onClick={() => loadPage(page - 1)} disabled={page === 0} aria-label="Previous page">
-            <ChevronLeft className="size-6" />
+            <ChevronLeft className="size-6 mt-1" />
           </button>
 
           {showFirst && (
@@ -135,7 +131,7 @@ export const Pagination: React.FC = () => {
               >
                 1
               </button>
-              {showLeadingEllipsis && <MoreHorizontal className="size-6 flex items-center justify-center mt-1" />}
+              {showLeadingEllipsis && <MoreHorizontal className="size-6 flex items-center justify-center mt-[2px]" />}
             </>
           )}
 
@@ -159,7 +155,7 @@ export const Pagination: React.FC = () => {
 
           {showLast && (
             <>
-              {showTrailingEllipsis && <MoreHorizontal className="size-6 flex items-center justify-center mt-1" />}
+              {showTrailingEllipsis && <MoreHorizontal className="size-6 flex items-center justify-center mt-[2px]" />}
               <button
                 type="button"
                 aria-current={pageCount - 1 === page ? "page" : undefined}
@@ -175,7 +171,7 @@ export const Pagination: React.FC = () => {
           )}
 
           <button type="button" className={arrowClassName} onClick={() => loadPage(page + 1)} disabled={page >= pageCount - 1} aria-label="Next page">
-            <ChevronRight className="size-6" />
+            <ChevronRight className="size-6 mt-1" />
           </button>
         </div>
       )}

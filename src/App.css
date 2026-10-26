@@ -86,7 +86,6 @@ a:hover {
     4px calc(100% - 16px),
     0px calc(100% - 16px)
   );
-  box-shadow: 10px 5px 5px red;
 }
 
 .form-control-clip {

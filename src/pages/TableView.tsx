@@ -260,7 +260,7 @@ const TableView: React.FC = () => {
         </Table>
       </Panel>
       <div className="mt-4 shrink-0 drop-shadow-[1px_2px_3px_black]">
-        <div className="clip bg-white p-6 h-[92px]">
+        <div className="form-control-clip-large bg-white">
           <Pagination />
         </div>
       </div>
