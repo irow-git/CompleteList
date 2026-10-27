@@ -188,13 +188,14 @@ const HeaderContent: React.FC<{ header: Header<IGame, unknown>; sortCount: numbe
 };
 
 const TableView: React.FC = () => {
-  const { games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort } = useGamesStore(
-    useShallow(({ games, page, pageSize, total, sort, search, infinite, status, loadPage, setSort }) => ({
+  const { games, page, pageSize, total, sort, separateDlcs, search, infinite, status, loadPage, setSort } = useGamesStore(
+    useShallow(({ games, page, pageSize, total, sort, separateDlcs, search, infinite, status, loadPage, setSort }) => ({
       games,
       page,
       pageSize,
       total,
       sort,
+      separateDlcs,
       search,
       infinite,
       status,
@@ -216,7 +217,7 @@ const TableView: React.FC = () => {
     columns,
     defaultColumn: { cell: ({ getValue }) => renderValue(getValue()) },
     getRowId: (game) => game.id,
-    getRowCanExpand: (row) => row.original.DLCs.length > 0,
+    getRowCanExpand: (row) => !separateDlcs && row.original.DLCs.length > 0,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     manualPagination: true,
@@ -281,7 +282,7 @@ const TableView: React.FC = () => {
                   {row.getIsExpanded() && (
                     <TableRow className="bg-white hover:bg-white">
                       <TableCell colSpan={columns.length} className="p-0 text-sm" style={{ paddingLeft: EXPAND_WIDTH }}>
-                        <DlcTable dlcs={row.original.DLCs} />
+                        { !separateDlcs && <DlcTable dlcs={row.original.DLCs} /> }
                       </TableCell>
                     </TableRow>
                   )}

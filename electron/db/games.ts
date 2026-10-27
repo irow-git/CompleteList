@@ -161,7 +161,7 @@ function searchGameIds(db: Db, search: string, separateDlcs = false): string[] {
     .map((row) => ({
       id: row.id,
       title: row.title,
-      dlcTitles: separateDlcs ? [] : (dlcTitles.get(row.id) ?? []),
+      dlcTitles: dlcTitles.get(row.id),
       parentTitle: row.parent_id ? (titles.get(row.parent_id) ?? "") : "",
       platform: row.platform,
       tags: row.tags,
@@ -220,6 +220,10 @@ export function listGames(db: Db, { page, pageSize, sort, search, separateDlcs }
       .map((row) => row.game);
   }
 
+  const dlcs = bases.length > 0 ? liveRows(db, inArray(games.parent_id, bases.map((base) => base.id))) : [];
+  const dlcsByParent = new Map<string, GameRow[]>();
+  for (const dlc of dlcs) dlcsByParent.set(dlc.parent_id!, [...(dlcsByParent.get(dlc.parent_id!) ?? []), dlc]);
+
   // Separate DLCs aren't nested; a DLC entry names its game instead
   if (separateDlcs) {
     const parentIds = [...new Set(bases.flatMap((row) => (row.parent_id ? [row.parent_id] : [])))];
@@ -230,14 +234,10 @@ export function listGames(db: Db, { page, pageSize, sort, search, separateDlcs }
     );
     const entries = bases.map((row) => {
       const parent = row.parent_id ? parents.get(row.parent_id) : undefined;
-      return { ...toGame(row, []), ...(parent && { parent }) };
+      return { ...toGame(row, dlcsByParent.get(row.id) ?? []), ...(parent && { parent }) };
     });
     return { games: entries, total, counts: countGames(db) };
   }
-
-  const dlcs = bases.length > 0 ? liveRows(db, inArray(games.parent_id, bases.map((base) => base.id))) : [];
-  const dlcsByParent = new Map<string, GameRow[]>();
-  for (const dlc of dlcs) dlcsByParent.set(dlc.parent_id!, [...(dlcsByParent.get(dlc.parent_id!) ?? []), dlc]);
 
   return { games: bases.map((base) => toGame(base, dlcsByParent.get(base.id) ?? [])), total, counts: countGames(db) };
 }
