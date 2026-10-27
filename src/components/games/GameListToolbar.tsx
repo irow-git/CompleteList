@@ -25,6 +25,7 @@ export const GameListToolbar = forwardRef<HTMLDivElement, { controls?: React.Rea
       <SyncIndicator />
       <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
         {controls}
+        <SortMenu />
         <div className="flex items-center gap-2" title="List each DLC as an entry of its own, among the games">
           <div className="drop-shadow-[0px_1px_1px_black]">
             <Checkbox id="separate-dlcs" checked={separateDlcs} onCheckedChange={(checked) => setSeparateDlcs(checked === true)} />
@@ -33,7 +34,6 @@ export const GameListToolbar = forwardRef<HTMLDivElement, { controls?: React.Rea
             Group by DLC
           </label>
         </div>
-        <SortMenu />
         <SearchBox />
       </div>
     </div>
