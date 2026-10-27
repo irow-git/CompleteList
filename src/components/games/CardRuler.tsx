@@ -165,7 +165,9 @@ export const CardRuler: React.FC<{
   // The ruler starts below this (the toolbar), so it never covers it, however many lines the toolbar wraps onto
   below: React.RefObject<HTMLElement>;
 }> = ({ currentIndex, onJump, below }) => {
-  const { sort, search, total } = useGamesStore(useShallow(({ sort, search, total }) => ({ sort, search, total })));
+  const { sort, search, separateDlcs, total } = useGamesStore(
+    useShallow(({ sort, search, separateDlcs, total }) => ({ sort, search, separateDlcs, total }))
+  );
   const ruler = useActiveRuler();
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [box, setBox] = useState({ left: 0, top: 0, height: 0 });
@@ -177,11 +179,11 @@ export const CardRuler: React.FC<{
   useEffect(() => {
     if (!ruler) return setCheckpoints([]);
     let current = true;
-    window.api.games.checkpoints({ kind: ruler.kind, sort, search }).then((result) => current && setCheckpoints(result));
+    window.api.games.checkpoints({ kind: ruler.kind, sort, search, separateDlcs }).then((result) => current && setCheckpoints(result));
     return () => {
       current = false;
     };
-  }, [ruler, sort, search, total]);
+  }, [ruler, sort, search, separateDlcs, total]);
 
   // Fixed in <main>'s left padding, right next to the sidebar, from just below the toolbar to near the bottom: it stays
   // put while the cards scroll. Measured, since <main>'s position depends on the sidebar and header, and the toolbar's

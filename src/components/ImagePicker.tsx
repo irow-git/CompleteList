@@ -86,7 +86,7 @@ export const ImagePicker: React.FC<{ id?: string; owner: string; value: string |
           )}
         >
           {value ? (
-            <img src={imageUrl(owner, value, "thumb")} alt="Cover" className="absolute inset-0 size-full object-cover" />
+            <img src={imageUrl(owner, value)} alt="Cover" className="absolute inset-0 size-full object-cover" />
           ) : (
             "Choose, drop or paste an image"
           )}
@@ -115,7 +115,7 @@ export const ImagePicker: React.FC<{ id?: string; owner: string; value: string |
                       cover.image === value ? "outline-2 outline-ink" : "opacity-75 hover:opacity-100"
                     )}
                   >
-                    <img src={imageUrl(owner, cover.image, "thumb")} alt="" className="size-full object-cover" />
+                    <img src={imageUrl(owner, cover.image)} alt="" className="size-full object-cover" />
                   </button>
                   <button
                     type="button"

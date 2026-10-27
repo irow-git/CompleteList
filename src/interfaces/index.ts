@@ -24,6 +24,8 @@ export interface IDLC extends GameDetails {
 export interface IGame extends GameDetails {
   id: string;
   DLCs: IDLC[];
+  // Only on a DLC listed as an entry of its own (PageRequest.separateDlcs), which then has no DLCs: its game
+  parent?: { id: string; title: string };
 }
 
 // What gets passed in when creating a game. The form gives the game and its DLCs their ids up front (covers are stored
@@ -49,23 +51,26 @@ export interface GameSort {
   direction: "asc" | "desc";
 }
 
-// Lists page through base games only: DLCs come nested in their game and don't count towards pageSize or total
+// Lists page through base games only: DLCs come nested in their game and don't count towards pageSize or total.
+// Unless separateDlcs is set: then every DLC is an entry of its own, sorted, searched and paged like the games
 export interface PageRequest {
   page: number; // 0-based
   pageSize: number;
   // Applied in order: the first sort decides, the next breaks its ties, and so on.
   // Without any, games are listed by title, or by relevance while searching
   sort?: GameSort[];
-  // Fuzzy search over title, platform, tags, completion, comment and DLC titles
+  // Fuzzy search over title, platform, tags, completion, comment and DLC titles (or, with separateDlcs, a DLC's game's
+  // title)
   search?: string;
+  separateDlcs?: boolean;
 }
 
 // What the card view's ruler marks: titles' first letters, the year of a date, or a range of scores or hours
 export type CheckpointKind = "letter" | "release_date" | "last_completion" | "score" | "hours";
 
-export type CheckpointRequest = Pick<PageRequest, "sort" | "search"> & { kind: CheckpointKind };
+export type CheckpointRequest = Pick<PageRequest, "sort" | "search" | "separateDlcs"> & { kind: CheckpointKind };
 
-// A run of consecutive games (in the list's order) sharing a letter or year, and where it starts in the list
+// A run of consecutive entries (in the list's order) sharing a letter or year, and where it starts in the list
 export interface Checkpoint {
   // "A"…"Z", "#" for anything else; a year; the low end of a range of scores or hours; or "" for
   // games without that value
@@ -76,16 +81,9 @@ export interface Checkpoint {
 
 export interface GamePage {
   games: IGame[];
-  total: number; // base games across all pages (matching ones, while searching)
+  total: number; // entries across all pages (matching ones, while searching)
   // The whole collection, regardless of search
   counts: { games: number; dlcs: number };
-}
-
-// A picture handed to the main process to store: the original file's bytes plus a small WebP thumbnail made from it
-export interface ImageInput {
-  type: string; // MIME type of `data`
-  data: Uint8Array;
-  thumbnail: Uint8Array;
 }
 
 // The web app config from the Firebase console (Project settings → Your apps)

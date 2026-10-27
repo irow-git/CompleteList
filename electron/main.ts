@@ -73,7 +73,7 @@ function registerIpcHandlers(db: Db) {
   ipcMain.handle("games:update", (_event, game) => updateGame(db, game));
   ipcMain.handle("games:remove", (_event, id) => removeGame(db, id));
 
-  ipcMain.handle("images:save", (_event, owner, image) => saveImage(imagesDir(), owner, image));
+  ipcMain.handle("images:save", (_event, owner, cover) => saveImage(imagesDir(), owner, cover));
   ipcMain.handle("covers:list", (_event, gameId) => listCovers(db, gameId));
   // The files go straight away; the cloud copy goes at the next sync, once the deletion has been recorded there
   ipcMain.handle("covers:remove", (_event, id) => {

@@ -114,7 +114,7 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
         >
           {showCover ? (
             <img
-              src={imageUrl(game.id, game.cover_image!, "thumb")}
+              src={imageUrl(game.id, game.cover_image!)}
               alt=""
               loading="lazy"
               onError={() => setCoverMissing(true)}
@@ -145,16 +145,21 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
               />
             )}
           </div>
-          {dlcCount > 0 && (
-            <Badge className="absolute bottom-2 left-2">
-              +{dlcCount} DLC
-            </Badge>
-          )}
-          {game.hours !== null && (
-            <Badge className="absolute right-2 bottom-2 max-w-[60%]">
-              <span title={glow?.level === 3 ? "It's over 9000!" : "Hours played"}>{formatHours(game.hours)}</span>
-            </Badge>
-          )}
+          <div className="absolute right-2 bottom-2 left-2 flex items-end justify-between gap-1">
+            {/* A DLC listed on its own names its game; a game shows how many DLCs it has */}
+            {game.parent ? (
+              <Badge className="min-w-0">
+                <span title={`DLC of ${game.parent.title}`}>DLC · {game.parent.title}</span>
+              </Badge>
+            ) : (
+              dlcCount > 0 && <Badge>+{dlcCount} DLC</Badge>
+            )}
+            {game.hours !== null && (
+              <Badge className="ml-auto shrink-0">
+                <span title={glow?.level === 3 ? "It's over 9000!" : "Hours played"}>{formatHours(game.hours)}</span>
+              </Badge>
+            )}
+          </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden p-3 text-left font-chava text-sm">
@@ -183,9 +188,9 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
 };
 
 const CardView: React.FC = () => {
-  const { games, total, search, sort, status, infinite, restoreCards, loadMore, loadUntil } = useGamesStore(
-    useShallow(({ games, total, search, sort, status, infinite, restoreCards, loadMore, loadUntil }) =>
-      ({ games, total, search, sort, status, infinite, restoreCards, loadMore, loadUntil }))
+  const { games, total, search, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil } = useGamesStore(
+    useShallow(({ games, total, search, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil }) =>
+      ({ games, total, search, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil }))
   );
   const [cardWidth, setCardWidth] = useState(savedCardSize);
   const root = useRef<HTMLDivElement>(null);
@@ -281,7 +286,7 @@ const CardView: React.FC = () => {
     };
   }, []);
 
-  // A new order or search starts at the top
+  // A new order, search or way of listing DLCs starts at the top
   const firstRun = useRef(true);
   useEffect(() => {
     if (firstRun.current) {
@@ -289,7 +294,7 @@ const CardView: React.FC = () => {
       return;
     }
     scroller()?.scrollTo({ top: 0 });
-  }, [sort, search]);
+  }, [sort, search, separateDlcs]);
 
   // Load the next page when the end of the list comes within reach. The observer is recreated whenever more games
   // arrive: observing reports the current state right away, so a screen tall enough to show them all keeps loading

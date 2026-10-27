@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ImageSyncProviderId, ImageSyncResult, ImageSyncStatus } from "../../src/interfaces";
 import { isImageRef, isOwnerId } from "../../src/lib/imageRef";
-import { imageFiles, removeImage, storedFiles } from "./store";
+import { imageFile, removeImage, storedFiles } from "./store";
 import { DEFAULT_IMAGE_FOLDER, IMAGE_SYNC_PROVIDERS } from "../../src/lib/imageSyncProviders";
 import type { RcloneOutput, RcloneRunner } from "./rclone";
 
@@ -174,10 +174,10 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
       const deleted = coversToSync.deleted.filter(valid);
       const local = new Set(storedFiles(imagesDir));
 
-      const liveFiles = live.flatMap((cover) => imageFiles(cover.gameId, cover.image));
+      const liveFiles = live.map((cover) => imageFile(cover.gameId, cover.image));
       const toUpload = liveFiles.filter((file) => local.has(file) && !inCloud.has(file));
       const toDownload = liveFiles.filter((file) => !local.has(file) && inCloud.has(file));
-      const toDelete = deleted.flatMap((cover) => imageFiles(cover.gameId, cover.image)).filter((file) => inCloud.has(file));
+      const toDelete = deleted.map((cover) => imageFile(cover.gameId, cover.image)).filter((file) => inCloud.has(file));
 
       // rclone reads the files to act on from a list, as paths relative to the folders it's given
       const withList = async (files: string[], action: string, args: (list: string) => string[]) => {
@@ -200,12 +200,11 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
       // Deleted covers that came from another computer's history go from this one too
       for (const cover of deleted) removeImage(imagesDir, cover.gameId, cover.image);
 
-      const images = (files: string[]) => files.filter((file) => isImageRef(file.slice(file.indexOf("/") + 1))).length;
       return {
-        uploaded: images(toUpload),
-        downloaded: images(toDownload),
-        deleted: images(toDelete),
-        missing: live.filter(({ gameId, image }) => !local.has(`${gameId}/${image}`) && !inCloud.has(`${gameId}/${image}`)).length,
+        uploaded: toUpload.length,
+        downloaded: toDownload.length,
+        deleted: toDelete.length,
+        missing: liveFiles.filter((file) => !local.has(file) && !inCloud.has(file)).length,
       };
     },
   };

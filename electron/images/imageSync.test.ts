@@ -76,14 +76,12 @@ const device = (name: string, rclone: { path: string; version: string } | null =
   return { sync, imagesDir };
 };
 
-const ref = (char: string) => `${char.repeat(64)}.png`;
-const thumb = (char: string) => `${char.repeat(64)}.thumb.webp`;
+const ref = (char: string) => `${char.repeat(64)}.webp`;
 const game = "0b8f1c2e-4d5a-4b6c-8d7e-9f0a1b2c3d4e";
 const cover = (char: string) => ({ gameId: game, image: ref(char) });
 const addImage = (imagesDir: string, char: string) => {
   fs.mkdirSync(path.join(imagesDir, game), { recursive: true });
   fs.writeFileSync(path.join(imagesDir, game, ref(char)), `image ${char}`);
-  fs.writeFileSync(path.join(imagesDir, game, thumb(char)), `thumb ${char}`);
 };
 
 beforeEach(() => {
@@ -147,12 +145,11 @@ test("syncing uploads the covers the cloud lacks, downloads the ones this comput
   addImage(a.imagesDir, "a");
   fs.writeFileSync(path.join(a.imagesDir, game, `${ref("a")}.1234.tmp`), "half-written");
   expect(await a.sync.sync({ live: [cover("a")], deleted: [] })).toEqual({ uploaded: 1, downloaded: 0, deleted: 0, missing: 0 });
-  expect(fs.readdirSync(path.join(cloudFolder, game)).sort()).toEqual([ref("a"), thumb("a")].sort());
+  expect(fs.readdirSync(path.join(cloudFolder, game))).toEqual([ref("a")]);
 
   // b's history has a's cover, and one that no computer has uploaded yet
   expect(await b.sync.sync({ live: [cover("a"), cover("b")], deleted: [] })).toEqual({ uploaded: 0, downloaded: 1, deleted: 0, missing: 1 });
   expect(fs.readFileSync(path.join(b.imagesDir, game, ref("a")), "utf8")).toBe("image a");
-  expect(fs.existsSync(path.join(b.imagesDir, game, thumb("a")))).toBe(true);
   expect(await b.sync.sync({ live: [cover("a")], deleted: [] })).toEqual({ uploaded: 0, downloaded: 0, deleted: 0, missing: 0 });
 
   // Deleted from the history: gone from the cloud and from both computers
@@ -255,7 +252,7 @@ test("copies and deletes only ever name the folder and a list of covers' files i
   await b.sync.sync({ live: [cover("a"), cover("b")], deleted: [] });
   await b.sync.sync({ live: [cover("a")], deleted: [cover("b")] });
 
-  const coverFile = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{64}\.(png|jpg|webp|gif|thumb\.webp)$/;
+  const coverFile = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{64}\.webp$/;
   const changing = calls.filter((command) => command[0] === "copy" || command[0] === "delete");
   expect(changing.map((command) => command[0])).toEqual(["copy", "copy", "delete"]);
   for (const command of changing) {

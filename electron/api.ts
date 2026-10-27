@@ -7,7 +7,6 @@ import type {
   GameUpdate,
   CoverEntry,
   IGame,
-  ImageInput,
   ImageSyncProviderId,
   ImageSyncStatus,
   NewGame,
@@ -32,9 +31,9 @@ export interface ElectronApi {
     remove(id: string): Promise<void>;
   };
   images: {
-    // Stores the picture in the folder of the game or DLC it's for (once, however often it's saved) and returns the
-    // reference to put on it
-    save(owner: string, image: ImageInput): Promise<string>;
+    // Stores a cropped cover (WebP, see cropCover in src/lib/images.ts) in the folder of the game or DLC it's for (once,
+    // however often it's saved) and returns the reference to put on it
+    save(owner: string, cover: Uint8Array): Promise<string>;
     // Where the covers are kept on this computer
     folder(): Promise<string>;
     // Opens that folder in the system's file manager; rejects with the reason if it can't

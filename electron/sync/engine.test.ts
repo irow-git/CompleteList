@@ -258,7 +258,7 @@ test("cover history syncs: a cover added on one device reaches the other, and so
 
 test("malformed cover entries from the cloud are ignored, since they turn into file paths", async () => {
   const game = createGame(a, { ...details("Celeste"), DLCs: [] });
-  const image = `${"ab".repeat(32)}.png`;
+  const image = `${"ab".repeat(32)}.webp`;
   const at = new Date("2026-10-27T09:00:00Z");
   const entry = (gameId: string, image: string, id = `${gameId}:${image}`): RemoteCover => ({ id, gameId, image, createdAt: at, updatedAt: at, deletedAt: at });
   await remote.pushCovers([
@@ -274,10 +274,10 @@ test("malformed cover entries from the cloud are ignored, since they turn into f
 });
 
 test("deleting a game deletes its covers, and their tombstones outlive the purged game", async () => {
-  const game = createGame(a, { ...details("Celeste"), cover_image: `${"cd".repeat(32)}.png`, DLCs: [] });
+  const game = createGame(a, { ...details("Celeste"), cover_image: `${"cd".repeat(32)}.webp`, DLCs: [] });
   removeGame(a, game.id);
   await runSync(a, remote);
 
   expect(getGame(a, game.id)).toBeNull();
-  expect(coversForImageSync(a)).toEqual({ live: [], deleted: [{ gameId: game.id, image: `${"cd".repeat(32)}.png` }] });
+  expect(coversForImageSync(a)).toEqual({ live: [], deleted: [{ gameId: game.id, image: `${"cd".repeat(32)}.webp` }] });
 });

@@ -29,7 +29,7 @@ export const vividHex = (hex: string) => {
 // Averages a small copy of the image, each pixel weighted by how colourful it is; greys barely count
 async function sample(owner: string, ref: string): Promise<string | null> {
   try {
-    const response = await fetch(imageUrl(owner, ref, "thumb"));
+    const response = await fetch(imageUrl(owner, ref));
     if (!response.ok) return null;
     const bitmap = await createImageBitmap(await response.blob(), { resizeWidth: 16, resizeHeight: 24 });
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);

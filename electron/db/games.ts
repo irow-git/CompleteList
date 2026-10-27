@@ -126,6 +126,7 @@ const searchableDay = (day: Date | null) => (day ? [formatDay(day), day.toISOStr
 const searchKeys = [
   { name: "title", weight: 3 },
   { name: "dlcTitles", weight: 2 },
+  "parentTitle",
   "platform",
   "tags",
   "completion",
@@ -145,20 +146,23 @@ const toFuseQuery = (search: string) => ({
     .map((pattern) => ({ $or: searchKeys.map((key) => ({ [typeof key === "string" ? key : key.name]: pattern })) })),
 });
 
-// Ids of the base games matching a search, best match first. SQLite has no typo-tolerant search, and a personal
-// collection is small enough to rank in memory. A matching DLC brings up its base game.
-function searchGameIds(db: Db, search: string): string[] {
+// Ids of the entries matching a search, best match first. SQLite has no typo-tolerant search, and a personal
+// collection is small enough to rank in memory. Normally the entries are base games, and a matching DLC brings up its
+// base game; with separate DLCs, a DLC is matched on its own (and by its game's title)
+function searchGameIds(db: Db, search: string, separateDlcs = false): string[] {
   const rows = liveRows(db);
+  const titles = new Map(rows.map((row) => [row.id, row.title]));
   const dlcTitles = new Map<string, string[]>();
   for (const row of rows) {
     if (row.parent_id) dlcTitles.set(row.parent_id, [...(dlcTitles.get(row.parent_id) ?? []), row.title]);
   }
   const documents = rows
-    .filter((row) => !row.parent_id)
+    .filter((row) => separateDlcs || !row.parent_id)
     .map((row) => ({
       id: row.id,
       title: row.title,
-      dlcTitles: dlcTitles.get(row.id) ?? [],
+      dlcTitles: separateDlcs ? [] : (dlcTitles.get(row.id) ?? []),
+      parentTitle: row.parent_id ? (titles.get(row.parent_id) ?? "") : "",
       platform: row.platform,
       tags: row.tags,
       completion: row.completion,
@@ -181,12 +185,16 @@ function searchGameIds(db: Db, search: string): string[] {
   return fuse.search(toFuseQuery(search)).map((result) => result.item.id);
 }
 
-export function listGames(db: Db, { page, pageSize, sort, search }: PageRequest): GamePage {
+// Live entries of a list: base games, or every game and DLC
+const listedRows = (separateDlcs: boolean | undefined, matchingIds: string[] | null) =>
+  and(isLive, separateDlcs ? undefined : isNull(games.parent_id), matchingIds ? inArray(games.id, matchingIds) : undefined);
+
+export function listGames(db: Db, { page, pageSize, sort, search, separateDlcs }: PageRequest): GamePage {
   const query = search?.trim();
-  const matchingIds = query ? searchGameIds(db, query) : null;
+  const matchingIds = query ? searchGameIds(db, query, separateDlcs) : null;
   if (matchingIds?.length === 0) return { games: [], total: 0, counts: countGames(db) };
 
-  const isListed = and(isLive, isNull(games.parent_id), matchingIds ? inArray(games.id, matchingIds) : undefined);
+  const isListed = listedRows(separateDlcs, matchingIds);
   const selectBases = (where: SQL | undefined) =>
     db.select({ game: games }).from(games).innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id)).where(where);
 
@@ -210,6 +218,21 @@ export function listGames(db: Db, { page, pageSize, sort, search }: PageRequest)
       .offset(page * pageSize)
       .all()
       .map((row) => row.game);
+  }
+
+  // Separate DLCs aren't nested; a DLC entry names its game instead
+  if (separateDlcs) {
+    const parentIds = [...new Set(bases.flatMap((row) => (row.parent_id ? [row.parent_id] : [])))];
+    const parents = new Map(
+      (parentIds.length > 0 ? db.select({ id: games.id, title: games.title }).from(games).where(inArray(games.id, parentIds)).all() : []).map(
+        (parent) => [parent.id, parent]
+      )
+    );
+    const entries = bases.map((row) => {
+      const parent = row.parent_id ? parents.get(row.parent_id) : undefined;
+      return { ...toGame(row, []), ...(parent && { parent }) };
+    });
+    return { games: entries, total, counts: countGames(db) };
   }
 
   const dlcs = bases.length > 0 ? liveRows(db, inArray(games.parent_id, bases.map((base) => base.id))) : [];
@@ -244,17 +267,17 @@ const checkpointKey = {
 // Where each letter, year or range starts in the list as it's currently sorted and searched, for the card view's ruler.
 // Consecutive games with the same key form one checkpoint, so it also follows descending sorts and puts games without
 // a date last, just like the list does
-export function listCheckpoints(db: Db, { sort, search, kind }: CheckpointRequest): Checkpoint[] {
+export function listCheckpoints(db: Db, { sort, search, kind, separateDlcs }: CheckpointRequest): Checkpoint[] {
   if (!(kind in checkpointKey)) return [];
   const query = search?.trim();
-  const matchingIds = query ? searchGameIds(db, query) : null;
+  const matchingIds = query ? searchGameIds(db, query, separateDlcs) : null;
   if (matchingIds?.length === 0) return [];
 
   const rows = db
     .select({ id: games.id, key: checkpointKey[kind] })
     .from(games)
     .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
-    .where(and(isLive, isNull(games.parent_id), matchingIds ? inArray(games.id, matchingIds) : undefined))
+    .where(listedRows(separateDlcs, matchingIds))
     .orderBy(...orderFor(sort))
     .all();
   // Without a sort, search results are in relevance order

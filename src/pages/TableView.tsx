@@ -49,7 +49,17 @@ const dataColumns = [
     cell: ({ row, getValue }) => (row.original.service ? <p className="text-green-700">Service</p> : renderValue(getValue())),
   }),
   columnHelper.accessor("free_to_play", { header: FIELD_LABELS.free_to_play, size: 97 }),
-  columnHelper.accessor("title", { header: FIELD_LABELS.title, minSize: 133 }),
+  columnHelper.accessor("title", {
+    header: FIELD_LABELS.title,
+    minSize: 133,
+    // A DLC listed on its own (Group by DLC) names its game under its title
+    cell: ({ row, getValue }) => (
+      <>
+        {getValue()}
+        {row.original.parent && <p className="text-sm text-black/55">DLC of {row.original.parent.title}</p>}
+      </>
+    ),
+  }),
   columnHelper.accessor("completion", { header: FIELD_LABELS.completion, minSize: 133 }),
   columnHelper.accessor("release_date", { header: FIELD_LABELS.release_date, size: 145 }),
   columnHelper.accessor("last_completion", { header: FIELD_LABELS.last_completion, size: 168 }),

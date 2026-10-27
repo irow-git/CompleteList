@@ -182,7 +182,7 @@ test("title order ignores a leading \"The\" or \"A\"", () => {
 });
 
 test("covers keep valid image references and drop anything else", () => {
-  const ref = `${"ab".repeat(32)}.jpg`;
+  const ref = `${"ab".repeat(32)}.webp`;
   const game = createGame(db, { ...details("Witcher 3"), cover_image: ref, DLCs: [{ ...details("Blood and Wine"), cover_image: "../../secret.png" }] });
 
   expect(game.cover_image).toBe(ref);
@@ -270,6 +270,40 @@ test("the form's ids are used, every saved cover joins the history, and deleting
   // Saving a deleted cover again brings it back
   updateGame(db, { ...getGame(db, id)!, cover_image: second });
   expect(listCovers(db, id)).toHaveLength(2);
+});
+
+test("separate DLCs are entries of their own: sorted, searched, paged and ruled among the games", () => {
+  createGame(db, { ...details("Elden Ring"), score: 96, DLCs: [{ ...details("Shadow of the Erdtree"), score: 94 }] });
+  createGame(db, { ...details("Witcher 3"), score: 92, DLCs: [{ ...details("Blood and Wine"), score: 98 }, { ...details("Hearts of Stone"), score: 40 }] });
+  const separate = { ...firstPage, separateDlcs: true };
+
+  const byScore = listGames(db, { ...separate, sort: [{ field: "score", direction: "desc" }] });
+  expect(byScore.games.map((game) => [game.title, game.parent?.title ?? null])).toEqual([
+    ["Blood and Wine", "Witcher 3"],
+    ["Elden Ring", null],
+    ["Shadow of the Erdtree", "Elden Ring"],
+    ["Witcher 3", null],
+    ["Hearts of Stone", "Witcher 3"],
+  ]);
+  expect(byScore.games.every((game) => game.DLCs.length === 0)).toBe(true);
+  expect(byScore.total).toBe(5);
+  expect(byScore.counts).toEqual({ games: 2, dlcs: 3 });
+
+  // Paging counts DLCs too
+  expect(listGames(db, { ...separate, page: 1, pageSize: 2 }).games.map((game) => game.title)).toEqual(["Hearts of Stone", "Shadow of the Erdtree"]);
+  // A DLC matches on its own title, or on its game's
+  expect(listGames(db, { ...separate, search: "erdtree" }).games.map((game) => game.title)).toEqual(["Shadow of the Erdtree"]);
+  expect(listGames(db, { ...separate, search: "witcher" }).games.map((game) => game.title).sort()).toEqual(["Blood and Wine", "Hearts of Stone", "Witcher 3"]);
+  // Without the option, DLCs stay nested and only games count
+  expect(listGames(db, firstPage).games.map((game) => game.title)).toEqual(["Elden Ring", "Witcher 3"]);
+
+  expect(listCheckpoints(db, { kind: "letter", sort: [{ field: "title", direction: "asc" }], separateDlcs: true })).toEqual([
+    { label: "B", index: 0, count: 1 },
+    { label: "E", index: 1, count: 1 },
+    { label: "H", index: 2, count: 1 },
+    { label: "S", index: 3, count: 1 },
+    { label: "W", index: 4, count: 1 },
+  ]);
 });
 
 test("update adds, edits and removes DLCs, touching only changed rows", () => {

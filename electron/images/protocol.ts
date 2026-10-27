@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { imagePath } from "./store";
 
-// img://local/<game or DLC id>/<ref> serves an image, img://local/<id>/<ref>/thumb its thumbnail
+// img://local/<game or DLC id>/<ref> serves a cover
 export const IMAGE_SCHEME = "img";
 
 // Has to run before the app is ready: lets the page load img:// URLs like any other images, and fetch them to read
@@ -17,8 +17,8 @@ export function registerImageScheme() {
 
 export function handleImageRequests(dir: string) {
   protocol.handle(IMAGE_SCHEME, async (request) => {
-    const [owner, ref, variant] = new URL(request.url).pathname.split("/").filter(Boolean);
-    const file = imagePath(dir, owner ?? "", ref ?? "", variant === "thumb");
+    const [owner, ref, ...rest] = new URL(request.url).pathname.split("/").filter(Boolean);
+    const file = rest.length === 0 ? imagePath(dir, owner ?? "", ref ?? "") : null;
     if (!file || !fs.existsSync(file)) return new Response(null, { status: 404 });
 
     const response = await net.fetch(pathToFileURL(file).toString());
