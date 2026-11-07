@@ -31,13 +31,14 @@ export const Cover: React.FC<{
   image: string | null;
   title: string;
   className?: string;
+  style?: React.CSSProperties;
   letterClassName?: string;
-}> = ({ owner, image, title, className, letterClassName }) => {
+}> = ({ owner, image, title, className, style, letterClassName }) => {
   const [missing, setMissing] = useState(false);
   useEffect(() => setMissing(false), [owner, image]);
 
   return (
-    <div className={cn("@container relative overflow-hidden", className)} style={{ background: coverBackground(title) }}>
+    <div className={cn("@container relative overflow-hidden", className)} style={{ background: coverBackground(title), ...style }}>
       {image && !missing ? (
         <img
           src={imageUrl(owner, image)}

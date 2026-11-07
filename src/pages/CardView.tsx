@@ -298,7 +298,7 @@ const CardView: React.FC = () => {
   const finished = games.length >= total;
 
   const sizeSlider = (
-    <div className="flex items-center gap-2 text-black/55" title="Card size">
+    <div className="flex items-center gap-2 text-faded" title="Card size">
       <Image className="size-6" />
       <Slider
         thumbLabel="Card size"

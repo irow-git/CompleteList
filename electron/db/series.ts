@@ -10,7 +10,7 @@ import { gameMetadata, games } from "./schema";
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 // The games on a series card
-const PREVIEW_GAMES = 4;
+const PREVIEW_GAMES = 8;
 
 const byRelease = (a: SeriesMember, b: SeriesMember) =>
   (a.release_date?.getTime() ?? Infinity) - (b.release_date?.getTime() ?? Infinity) || a.title.localeCompare(b.title);

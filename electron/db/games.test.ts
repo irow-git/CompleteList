@@ -475,7 +475,7 @@ test("series screen: lists series with their first games, finds them by name or 
     ["Halo", 5],
     ["The Witcher", 1],
   ]);
-  expect(listSeries(db)[0].games.map((game) => game.title)).toEqual(["Halo", "Halo 2", "Halo 3", "Halo 4"]);
+  expect(listSeries(db)[0].games.map((game) => game.title)).toEqual(["Halo", "Halo 2", "Halo 3", "Halo 4", "Halo 5"]);
   expect(listSeries(db, "witcher").map((series) => series.name)).toEqual(["The Witcher"]);
   expect(listSeries(db, "halo 5").map((series) => series.name)).toEqual(["Halo"]);
   expect(getSeries(db, "HALO")!.members.map((member) => member.title)).toEqual(["Halo", "Halo 2", "Halo 3", "Halo 4", "Halo 5"]);

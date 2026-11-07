@@ -93,7 +93,8 @@ const GamePicker: React.FC<{ exclude: Set<string>; current: string; onPick: (gam
             className="form-control-clip w-full pl-10"
           />
         </div>
-        <ul className="max-h-[50vh] overflow-y-auto">
+        {/* A fixed height, however many games are found, so the popover never changes size and stays put */}
+        <ul className="h-[min(50vh,360px)] overflow-y-auto">
           {results.length === 0 && <li className="px-2 py-1.5 text-white/65">No games found</li>}
           {results.map((game) => (
             <li key={game.id}>

@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Pencil } from "pixelarticons/react";
+import { Pencil } from "pixelarticons/react";
 import type { IGame } from "@/interfaces";
 import { useGamesStore } from "@/store/gamesStore";
 import { Panel } from "@/layout/Panel";
 import { Cover } from "@/components/games/Cover";
 import { Facts, Labels } from "@/components/games/GameHoverDetails";
 import { ScoreBadge } from "@/components/games/ScoreBadge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Everything about a game on a page of its own (a double tap or double click on its card): what the hover panel shows,
-// bigger, and each DLC with its own cover. ?dlc=<id> scrolls to that DLC and marks it
+// bigger, and each DLC with its own cover. ?dlc=<id> scrolls to that DLC and marks it. The header's arrows go back
 const GameDetails: React.FC = () => {
   const { id = "" } = useParams();
   const [params] = useSearchParams();
@@ -42,12 +42,6 @@ const GameDetails: React.FC = () => {
     <Panel>
       <div className="flex flex-col gap-6 p-5 text-left font-chava text-base">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="drop-shadow-[0px_1px_1px_black]">
-            <Button size="lg" className="form-control-clip-large" onClick={() => navigate(-1)}>
-              <ArrowLeft className="size-6" />
-              Back
-            </Button>
-          </div>
           <div className="drop-shadow-[0px_1px_1px_black]">
             <Link to={`/edit/${game.id}`} className={cn(buttonVariants({ size: "lg" }), "form-control-clip-large")}>
               <Pencil className="size-6" />

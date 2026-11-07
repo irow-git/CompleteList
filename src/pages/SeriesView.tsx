@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Pencil, Plus, Search } from "pixelarticons/react";
 import type { SeriesSummary } from "@/interfaces";
@@ -6,6 +6,7 @@ import type { SeriesCandidate } from "@/lib/series";
 import { useGamesStore } from "@/store/gamesStore";
 import { useSyncStore } from "@/store/syncStore";
 import { Cover } from "@/components/games/Cover";
+import { SyncIndicator } from "@/components/games/SyncIndicator";
 import { SeriesChoice, SeriesChoiceDialog } from "@/components/SeriesChoiceDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,18 +15,52 @@ import { cn } from "@/lib/utils";
 
 const SEARCH_DELAY_MS = 300;
 
-// Up to four covers on a series card: one fills it, two side by side, three as one big and two small, four in a grid
+// The collage's shape (width / height), and how much of its height a cover takes. Covers keep their 2:3 shape
+const COLLAGE_RATIO = 16 / 9;
+const COVER_HEIGHT = 0.86;
+const COVER_WIDTH = ((COVER_HEIGHT * 2) / 3 / COLLAGE_RATIO) * 100; // in % of the collage's width
+// Neighbouring covers always overlap a little, however few there are
+const MAX_STEP = COVER_WIDTH * 0.82;
+const SIDE_MARGIN = 3;
+
+// Where each of `count` covers goes, left to right, in the order the games are listed: the first at the left edge,
+// the second at the right, then the middle outwards, the third on top in the middle and the fourth just beneath it.
+// Covers nearer the middle sit higher, so the stack peaks there
+function collageSlots(count: number) {
+  const center = (count - 1) / 2;
+  const middleOut = Array.from({ length: count }, (_, slot) => slot)
+    .filter((slot) => count < 3 || (slot !== 0 && slot !== count - 1))
+    .sort((a, b) => Math.abs(a - center) - Math.abs(b - center) || a - b);
+  const order = count < 3 ? middleOut : [0, count - 1, ...middleOut];
+
+  const step = count > 1 ? Math.min(MAX_STEP, (100 - COVER_WIDTH - 2 * SIDE_MARGIN) / (count - 1)) : 0;
+  const start = (100 - (COVER_WIDTH + step * (count - 1))) / 2;
+  return order.map((slot, index) => ({
+    left: start + step * slot,
+    // Closer to the middle is higher; between two equally close, the game listed first
+    zIndex: Math.round((count - Math.abs(slot - center)) * 2) * 10 - index,
+  }));
+}
+
+// Up to eight covers, fanned out and overlapping
 const Collage: React.FC<{ games: SeriesSummary["games"] }> = ({ games }) => {
-  const layout = ["grid-cols-1", "grid-cols-2", "grid-cols-2 grid-rows-2", "grid-cols-2 grid-rows-2"][games.length - 1] ?? "grid-cols-1";
+  const slots = collageSlots(games.length);
   return (
-    <div className={cn("grid aspect-[4/3] gap-0.5 bg-black", layout)}>
+    <div className="relative aspect-[16/9] overflow-hidden bg-[linear-gradient(0deg,black_0%,var(--color-ink)_100%)]">
       {games.map((game, index) => (
         <Cover
           key={game.id}
           owner={game.id}
           image={game.cover_image}
           title={game.title}
-          className={cn("size-full", games.length === 3 && index === 0 && "row-span-2")}
+          className="absolute shadow-[0_0_8px_rgba(0,0,0,0.75)]"
+          style={{
+            left: `${slots[index].left}%`,
+            width: `${COVER_WIDTH}%`,
+            top: `${((1 - COVER_HEIGHT) / 2) * 100}%`,
+            height: `${COVER_HEIGHT * 100}%`,
+            zIndex: slots[index].zIndex,
+          }}
         />
       ))}
     </div>
@@ -67,12 +102,17 @@ interface Review {
   assigned: number;
 }
 
+// Where the series screen was left, so coming back to it (say from a series' games) lands in the same place, like the
+// card view. Only for as long as the app runs
+const remembered = { search: "", scroll: 0 };
+
 const SeriesView: React.FC = () => {
   const navigate = useNavigate();
   const showSeries = useGamesStore((state) => state.showSeries);
   const [series, setSeries] = useState<SeriesSummary[] | null>(null);
-  const [text, setText] = useState("");
-  const [search, setSearch] = useState("");
+  const [text, setText] = useState(remembered.search);
+  const [search, setSearch] = useState(remembered.search);
+  const root = useRef<HTMLDivElement>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
@@ -81,6 +121,37 @@ const SeriesView: React.FC = () => {
     const timer = setTimeout(() => setSearch(text.trim()), SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [text]);
+
+  // Set once the remembered position has been scrolled back to; until then, scrolling isn't recorded
+  const restored = useRef(false);
+
+  // <main> is what scrolls. The position is recorded as it changes, and the listener removed while this page is still
+  // there (a layout effect): once it's gone, <main> is scrolled back to the top for the next page
+  useLayoutEffect(() => {
+    const main = root.current?.closest("main");
+    if (!main) return;
+    const track = () => {
+      if (restored.current) remembered.scroll = main.scrollTop;
+    };
+    main.addEventListener("scroll", track, { passive: true });
+    return () => main.removeEventListener("scroll", track);
+  }, []);
+
+  // Back to where it was once the series are there to scroll through
+  useLayoutEffect(() => {
+    if (restored.current || series === null) return;
+    restored.current = true;
+    const main = root.current?.closest("main");
+    if (main) main.scrollTop = remembered.scroll;
+  }, [series]);
+
+  // A new search starts at the top
+  useEffect(() => {
+    if (search === remembered.search) return;
+    remembered.search = search;
+    remembered.scroll = 0;
+    root.current?.closest("main")?.scrollTo({ top: 0 });
+  }, [search]);
 
   const load = useCallback(() => window.api.series.list(search || undefined).then(setSeries), [search]);
   useEffect(() => {
@@ -135,9 +206,10 @@ const SeriesView: React.FC = () => {
   };
 
   return (
-    <div>
+    <div ref={root}>
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-3 font-chava text-base">
         <span className="font-pixel text-sm">{series ? `${series.length} series` : ""}</span>
+        <SyncIndicator />
         {message && <span className="text-black/55">{message}</span>}
         <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
           <div className="drop-shadow-[0px_1px_1px_black]">
@@ -175,7 +247,7 @@ const SeriesView: React.FC = () => {
           {search ? `No series match "${search}"` : "No series yet. Detect series looks for them among your games."}
         </p>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-6">
           {series?.map((entry) => (
             <SeriesCard key={entry.name} series={entry} onOpen={() => open(entry.name)} />
           ))}
