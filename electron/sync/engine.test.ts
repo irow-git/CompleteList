@@ -10,8 +10,9 @@ import { createGame, getGame, listGames, removeCover, removeGame, updateGame } f
 import { coversForImageSync, listCovers } from "../db/covers";
 import * as schema from "../db/schema";
 import { assignSeries, deleteSeries, detectAll, saveSeries } from "../db/series";
+import { addSelectItems, listSelectItems, removeSelectItem } from "../db/selectItems";
 import { resetSync, runSync, syncStatus } from "./engine";
-import type { PushRecord, RemoteCover, RemoteDetails, RemoteMetadata, RemoteStore } from "./remote";
+import type { PushRecord, RemoteCover, RemoteDetails, RemoteMetadata, RemoteSelectItem, RemoteStore } from "./remote";
 
 // Stands in for Firestore. It has its own clock, unrelated to either device's, like Firestore's serverTimestamp()
 class FakeRemote implements RemoteStore {
@@ -19,6 +20,7 @@ class FakeRemote implements RemoteStore {
   metadata = new Map<string, RemoteMetadata>();
   details = new Map<string, RemoteDetails>();
   covers = new Map<string, RemoteCover & { serverUpdatedAt: number }>();
+  selectItems = new Map<string, RemoteSelectItem & { serverUpdatedAt: number }>();
   beforePush?: () => void;
 
   async changedMetadataSince(checkpoint: number) {
@@ -50,6 +52,17 @@ class FakeRemote implements RemoteStore {
 
   async pushCovers(records: RemoteCover[]) {
     for (const cover of records) this.covers.set(cover.id, { ...structuredClone(cover), serverUpdatedAt: ++this.serverTime });
+  }
+
+  async changedSelectItemsSince(checkpoint: number) {
+    return [...this.selectItems.values()]
+      .filter((item) => item.serverUpdatedAt > checkpoint)
+      .sort((x, y) => x.serverUpdatedAt - y.serverUpdatedAt)
+      .map((item) => structuredClone(item));
+  }
+
+  async pushSelectItems(records: RemoteSelectItem[]) {
+    for (const item of records) this.selectItems.set(item.id, { ...structuredClone(item), serverUpdatedAt: ++this.serverTime });
   }
 }
 
@@ -386,4 +399,56 @@ test("when both devices put a game in different series offline, the later change
   await runSync(b, remote);
   await runSync(a, remote);
   expect([seriesOf(a, game.id), seriesOf(b, game.id)]).toEqual(["Arkham", "Arkham"]);
+});
+
+const options = (db: Db, list: "platform" | "tags") => listSelectItems(db)[list].map((item) => item.value);
+
+test("dropdown options added on different devices end up on both, in the order they were added", async () => {
+  addSelectItems(a, "platform", ["SWITCH", "PS5"]);
+  setClock("2026-01-01T11:00:00Z");
+  addSelectItems(b, "platform", ["STEAM DECK"]);
+  addSelectItems(b, "tags", ["100%"]);
+  expect(syncStatus(b, true).pendingChanges).toBe(2);
+
+  await runSync(a, remote);
+  await runSync(b, remote);
+  await runSync(a, remote);
+
+  for (const db of [a, b]) {
+    expect(options(db, "platform")).toEqual(["PC", "Mobile", "SWITCH", "PS5", "STEAM DECK"]);
+    expect(options(db, "tags")).toEqual(["Tough to beat", "Hardest Difficulty", "100%"]);
+    expect(syncStatus(db, true).pendingChanges).toBe(0);
+  }
+});
+
+test("a dropdown option is only gone once it's removed, and then everywhere", async () => {
+  addSelectItems(a, "platform", ["SWITCH", "PS/2"]);
+  await runSync(a, remote);
+  await runSync(b, remote);
+
+  // A device that never added an option doesn't take it away by syncing
+  const c = device();
+  await runSync(c, remote);
+  await runSync(a, remote);
+  expect(options(a, "platform")).toEqual(["PC", "Mobile", "SWITCH", "PS/2"]);
+
+  setClock("2026-01-01T11:00:00Z");
+  removeSelectItem(b, listSelectItems(b).platform.find((item) => item.value === "PS/2")!.id);
+  await runSync(b, remote);
+  await runSync(a, remote);
+  await runSync(c, remote);
+  for (const db of [a, b, c]) expect(options(db, "platform")).toEqual(["PC", "Mobile", "SWITCH"]);
+
+  // Added again later, it comes back everywhere
+  setClock("2026-01-01T12:00:00Z");
+  addSelectItems(c, "platform", ["PS/2"]);
+  await runSync(c, remote);
+  await runSync(a, remote);
+  expect(options(a, "platform")).toEqual(["PC", "Mobile", "SWITCH", "PS/2"]);
+});
+
+test("adding a dropdown option the list already has, ignoring case, changes nothing", () => {
+  addSelectItems(a, "platform", ["pc", "  SWITCH  ", "switch", ""]);
+  expect(options(a, "platform")).toEqual(["PC", "Mobile", "SWITCH"]);
+  expect(listSelectItems(a).platform.map((item) => item.removable)).toEqual([false, false, true]);
 });

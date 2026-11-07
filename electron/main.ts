@@ -4,6 +4,7 @@ import path from "node:path";
 import { Db, openDatabase } from "./db";
 import { createGame, getGame, listCheckpoints, listGames, removeCover, removeGame, updateGame } from "./db/games";
 import { coverFilesToKeep, listCovers } from "./db/covers";
+import { addSelectItems, listSelectItems, removeSelectItem } from "./db/selectItems";
 import { assignSeries, deleteSeries, detectAll, getSeries, listSeries, saveSeries, suggestForGame, suggestForTitle } from "./db/series";
 import { createSyncService } from "./sync";
 import { clearFirebaseSettings, getFirebaseSettings, saveFirebaseSettings } from "./sync/settings";
@@ -90,6 +91,9 @@ function registerIpcHandlers(db: Db) {
     const removed = removeCover(db, id);
     if (removed) removeImage(imagesDir(), removed.gameId, removed.image);
   });
+  ipcMain.handle("selectItems:list", () => listSelectItems(db));
+  ipcMain.handle("selectItems:add", (_event, list, values) => addSelectItems(db, list, Array.isArray(values) ? values : []));
+  ipcMain.handle("selectItems:remove", (_event, id) => removeSelectItem(db, id));
   ipcMain.handle("images:folder", () => imagesDir());
   ipcMain.handle("images:openFolder", async () => {
     // Created first, so it opens even before the first cover has been added

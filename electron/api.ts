@@ -13,6 +13,8 @@ import type {
   PageRequest,
   SeriesMember,
   SeriesSave,
+  SelectItem,
+  SelectList,
   SeriesSummary,
   SyncResult,
   SyncStatus,
@@ -67,6 +69,14 @@ export interface ElectronApi {
     list(gameId: string): Promise<CoverEntry[]>;
     // Deletes one from the history (and its files; the cloud copy at the next sync). A game whose current cover it
     // was goes back to having none
+    remove(id: string): Promise<void>;
+  };
+  // The options of the platform and tag dropdowns, synced like the games
+  selectItems: {
+    list(): Promise<Record<SelectList, SelectItem[]>>;
+    // Adds options (or brings back removed ones), in order; ones the list already has are skipped
+    add(list: SelectList, values: string[]): Promise<void>;
+    // Only added options can be removed
     remove(id: string): Promise<void>;
   };
   imageSync: {

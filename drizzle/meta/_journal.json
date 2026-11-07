@@ -43,6 +43,13 @@
       "when": 1794058025979,
       "tag": "0005_series",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794078692353,
+      "tag": "0006_select_items",
+      "breakpoints": true
     }
   ]
 }

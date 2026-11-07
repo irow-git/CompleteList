@@ -1,4 +1,4 @@
-import type { GameDetails } from "../../src/interfaces";
+import type { GameDetails, SelectList } from "../../src/interfaces";
 
 // What a sync needs from the cloud side. Firestore implements it (firestore.ts); tests use an in-memory fake.
 
@@ -37,6 +37,16 @@ export interface RemoteCover {
   deletedAt: Date | null;
 }
 
+// One added dropdown option (see the select_items table). Tombstones have deletedAt set
+export interface RemoteSelectItem {
+  id: string;
+  list: SelectList;
+  value: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
 export interface RemoteStore {
   // Metadata stored after the checkpoint (server time, ms), oldest first
   changedMetadataSince(checkpoint: number): Promise<RemoteMetadata[]>;
@@ -46,4 +56,7 @@ export interface RemoteStore {
   // Cover history entries stored after the checkpoint (server time, ms), oldest first
   changedCoversSince(checkpoint: number): Promise<(RemoteCover & { serverUpdatedAt: number })[]>;
   pushCovers(records: RemoteCover[]): Promise<void>;
+  // Dropdown options stored after the checkpoint (server time, ms), oldest first
+  changedSelectItemsSince(checkpoint: number): Promise<(RemoteSelectItem & { serverUpdatedAt: number })[]>;
+  pushSelectItems(records: RemoteSelectItem[]): Promise<void>;
 }

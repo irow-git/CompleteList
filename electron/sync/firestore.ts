@@ -17,11 +17,11 @@ import {
   type Firestore,
   type QueryDocumentSnapshot,
 } from "firebase/firestore/lite";
-import type { FirebaseConfig, GameDetails } from "../../src/interfaces";
+import type { FirebaseConfig, GameDetails, SelectList } from "../../src/interfaces";
 import { isImageRef } from "../../src/lib/imageRef";
 import { toScore } from "../../src/lib/score";
 import { toHours } from "../../src/lib/hours";
-import type { PushRecord, RemoteCover, RemoteDetails, RemoteMetadata, RemoteStore } from "./remote";
+import type { PushRecord, RemoteCover, RemoteDetails, RemoteMetadata, RemoteSelectItem, RemoteStore } from "./remote";
 
 // Everything lives under users/{uid}, split in two so a sync reads the cheap part first:
 //   gameMetadata/{id}  { parentId, createdAt, updatedAt, deletedAt, serverUpdatedAt }
@@ -123,6 +123,8 @@ function firestoreRemote(firestore: Firestore, uid: string): RemoteStore {
   const gamesCollection = collection(firestore, "users", uid, "games");
   // users/{uid}/covers/{"<game id>:<image>"}: { gameId, image, createdAt, updatedAt, deletedAt, serverUpdatedAt }
   const coversCollection = collection(firestore, "users", uid, "covers");
+  // users/{uid}/selectItems/{"<list>:<encoded value>"}: { list, value, createdAt, updatedAt, deletedAt, serverUpdatedAt }
+  const selectItemsCollection = collection(firestore, "users", uid, "selectItems");
 
   return {
     async changedMetadataSince(checkpoint) {
@@ -222,6 +224,46 @@ function firestoreRemote(firestore: Firestore, uid: string): RemoteStore {
         await batch.commit();
       }
     },
+
+    async changedSelectItemsSince(checkpoint) {
+      const changed: (RemoteSelectItem & { serverUpdatedAt: number })[] = [];
+      let cursor: QueryDocumentSnapshot | undefined;
+      for (;;) {
+        const page = await getDocs(
+          query(
+            selectItemsCollection,
+            where("serverUpdatedAt", ">", Timestamp.fromMillis(checkpoint)),
+            orderBy("serverUpdatedAt"),
+            ...(cursor ? [startAfter(cursor)] : []),
+            limit(METADATA_PAGE)
+          )
+        );
+        for (const snapshot of page.docs) {
+          const data = snapshot.data();
+          changed.push({
+            id: snapshot.id,
+            list: data.list as SelectList, // checked by the engine
+            value: String(data.value ?? ""),
+            createdAt: toDate(data.createdAt) ?? new Date(0),
+            updatedAt: toDate(data.updatedAt) ?? new Date(0),
+            deletedAt: toDate(data.deletedAt),
+            serverUpdatedAt: (data.serverUpdatedAt as Timestamp).toMillis(),
+          });
+        }
+        if (page.size < METADATA_PAGE) return changed;
+        cursor = page.docs[page.docs.length - 1];
+      }
+    },
+
+    async pushSelectItems(records) {
+      for (let start = 0; start < records.length; start += RECORDS_PER_BATCH * 2) {
+        const batch = writeBatch(firestore);
+        for (const { id, ...item } of records.slice(start, start + RECORDS_PER_BATCH * 2)) {
+          batch.set(doc(selectItemsCollection, id), { ...item, serverUpdatedAt: serverTimestamp() });
+        }
+        await batch.commit();
+      }
+    },
   };
 }
 
@@ -242,6 +284,9 @@ export async function connectFirestore(account: FirebaseAccount): Promise<Remote
       push: (records) => remote.push(records).catch((error) => Promise.reject(asFirebaseError(error))),
       changedCoversSince: (checkpoint) => remote.changedCoversSince(checkpoint).catch((error) => Promise.reject(asFirebaseError(error))),
       pushCovers: (records) => remote.pushCovers(records).catch((error) => Promise.reject(asFirebaseError(error))),
+      changedSelectItemsSince: (checkpoint) =>
+        remote.changedSelectItemsSince(checkpoint).catch((error) => Promise.reject(asFirebaseError(error))),
+      pushSelectItems: (records) => remote.pushSelectItems(records).catch((error) => Promise.reject(asFirebaseError(error))),
     };
   } catch (error) {
     throw asFirebaseError(error);

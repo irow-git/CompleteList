@@ -114,10 +114,20 @@ export interface FirebaseSettingsInput extends FirebaseSettings {
   createAccount?: boolean;
 }
 
+// The dropdowns whose options people can add to and remove from, by the game field they fill
+export type SelectList = "platform" | "tags";
+
+// One option of such a dropdown. The built-in ones (see src/lib/selectItems.ts) can't be removed
+export interface SelectItem {
+  id: string;
+  value: string;
+  removable: boolean;
+}
+
 export interface SyncStatus {
   configured: boolean;
   lastSyncedAt: Date | null;
-  // Games and DLCs changed locally since the last sync
+  // Games, DLCs, covers and dropdown options changed locally since the last sync
   pendingChanges: number;
 }
 

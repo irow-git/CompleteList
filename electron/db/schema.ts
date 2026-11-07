@@ -1,4 +1,5 @@
 import { AnySQLiteColumn, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { SelectList } from "../../src/interfaces";
 
 // Game details: what the user edits. Keys match GameDetails in src/interfaces so rows map onto it directly.
 // DLCs are rows too, pointing at their base game through parent_id.
@@ -69,4 +70,24 @@ export const covers = sqliteTable(
     dirty: integer({ mode: "boolean" }).notNull().default(true),
   },
   (table) => [index("covers_game_id_idx").on(table.game_id), index("covers_dirty_idx").on(table.dirty)]
+);
+
+// The custom options of the platform and tag dropdowns (the built-in ones live in src/lib/selectItems.ts). Synced like
+// the covers: a removed option stays as a tombstone so the removal reaches every computer, and options are only ever
+// removed that way, so computers that each added their own end up with all of them. The id is
+// "<list>:<encoded value>" (see selectItemId), so two computers adding the same option end up with the same row
+export const selectItems = sqliteTable(
+  "select_items",
+  {
+    id: text().primaryKey(),
+    list: text().$type<SelectList>().notNull(),
+    value: text().notNull(),
+    // Options are listed in the order they were added
+    created_at: integer({ mode: "timestamp_ms" }).notNull(),
+    updated_at: integer({ mode: "timestamp_ms" }).notNull(),
+    deleted_at: integer({ mode: "timestamp_ms" }),
+    // Local only: changed since the last sync
+    dirty: integer({ mode: "boolean" }).notNull().default(true),
+  },
+  (table) => [index("select_items_list_idx").on(table.list), index("select_items_dirty_idx").on(table.dirty)]
 );

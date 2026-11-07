@@ -1,5 +1,5 @@
 import { Controller, FieldError, FieldPath, get, useFormContext, useWatch } from "react-hook-form";
-import AppendableSelectDropdown, { SelectItem } from "./AppendableSelectDropdown";
+import AppendableSelectDropdown from "./AppendableSelectDropdown";
 import { FormItem } from "./FormItem";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,9 +8,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ImagePicker } from "./ImagePicker";
 import { ScoreInput } from "./ScoreInput";
 import { HoursInput } from "./HoursInput";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { GameDetails, GameUpdate } from "../interfaces";
+import { useSelectItemsStore } from "@/store/selectItemsStore";
 
 // The form edits exactly what gets stored, so submitted values can go straight to the database
 export type GameFormValues = GameDetails;
@@ -54,22 +55,9 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
     formState: { errors },
   } = useFormContext<AddGameFormValues>();
 
-  const [platformItems, setPlatformItems] = useState<Array<SelectItem>>([
-    { key: 1, value: "PC" },
-    { key: 2, value: "Mobile" },
-  ]);
-
-  const [tagItems, setTagItems] = useState<Array<SelectItem>>([
-    { key: 1, value: "Tough to beat" },
-    { key: 2, value: "Hardest Difficulty" },
-  ]);
-
+  // The dropdown options, in case a sync on another computer changed them
   useEffect(() => {
-    const localStoragePlatformItems = localStorage.getItem("platform-items");
-    const localStorageTagItems = localStorage.getItem("tag-items");
-
-    localStoragePlatformItems && setPlatformItems(JSON.parse(localStoragePlatformItems));
-    localStorageTagItems && setTagItems(JSON.parse(localStorageTagItems));
+    void useSelectItemsStore.getState().load();
   }, []);
 
   // Whose cover this is: the game's id, or the DLC's
@@ -135,11 +123,10 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
         />
       </FormItem>
 
-      <FormItem label="Date of Last Completion" htmlFor={id("last_completion")} required error={error("last_completion")}>
+      <FormItem label="Date of Last Completion" htmlFor={id("last_completion")}>
         <Controller
           control={control}
           name={name("last_completion")}
-          rules={{ required: "Date of last completion required" }}
           render={({ field }) => (
             <DatePicker
               id={id("last_completion")}
@@ -148,7 +135,6 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
               value={field.value ?? undefined}
               onChange={(date) => field.onChange(date ?? null)}
               onBlur={field.onBlur}
-              aria-invalid={!!error("last_completion")}
             />
           )}
         />
@@ -166,9 +152,7 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
               onChange={field.onChange}
               onBlur={field.onBlur}
               invalid={!!error("platform")}
-              localStorageKey="platform-items"
-              selectItems={platformItems}
-              setSelectItems={setPlatformItems}
+              list="platform"
               placeholder="Choose a Platform"
             />
           )}
@@ -185,9 +169,7 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
               value={field.value}
               onChange={field.onChange}
               onBlur={field.onBlur}
-              localStorageKey="tag-items"
-              selectItems={tagItems}
-              setSelectItems={setTagItems}
+              list="tags"
               placeholder="Select Tags"
               nullable={true}
             />

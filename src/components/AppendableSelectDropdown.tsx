@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RemoveButton } from "@/components/ui/remove-button";
 import { cn } from "@/lib/utils";
-
-export type SelectItem = { key: number; value: string };
-
-// Items with these keys are the built-in defaults and can't be removed
-const LAST_DEFAULT_KEY = 2;
+import { MAX_SELECT_ITEM_LENGTH, normalizeSelectItem } from "@/lib/selectItems";
+import { useSelectItemsStore } from "@/store/selectItemsStore";
+import type { SelectItem, SelectList } from "../interfaces";
 
 const tagClass =
   "my-0.5 mr-1 flex h-8 shrink-0 cursor-default items-center px-2.5 leading-[30px] not-first:border-l-[3px] not-first:border-sand-dark";
@@ -54,12 +52,15 @@ const AppendableSelectDropdown: React.FC<{
   onChange: (value: string[]) => void;
   onBlur?: () => void;
   invalid?: boolean;
-  localStorageKey: string;
-  selectItems: SelectItem[];
-  setSelectItems: React.Dispatch<React.SetStateAction<SelectItem[]>>;
+  // Whose options it offers (and adds to): they're stored in the database and synced
+  list: SelectList;
   placeholder?: string;
   nullable?: boolean;
-}> = ({ id, value = [], onChange, onBlur, invalid, localStorageKey, selectItems, setSelectItems, placeholder, nullable = false }) => {
+}> = ({ id, value = [], onChange, onBlur, invalid, list, placeholder, nullable = false }) => {
+  const selectItems = useSelectItemsStore((state) => state.items[list]);
+  const error = useSelectItemsStore((state) => state.error);
+  const addItem = useSelectItemsStore((state) => state.add);
+  const removeItem = useSelectItemsStore((state) => state.remove);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [newSelectItem, setNewSelectItem] = useState("");
@@ -76,15 +77,10 @@ const AppendableSelectDropdown: React.FC<{
     onChange(value.includes(itemValue) ? value.filter((v) => v !== itemValue) : [...value, itemValue]);
   };
 
-  const saveSelectItems = (items: SelectItem[]) => {
-    setSelectItems(items);
-    localStorage.setItem(localStorageKey, JSON.stringify(items));
-  };
-
   const addSelectItem = () => {
-    if (!newSelectItem) return;
-    const lastKey = selectItems[selectItems.length - 1]?.key ?? 0;
-    saveSelectItems([...selectItems, { key: lastKey + 1, value: newSelectItem }]);
+    const item = normalizeSelectItem(newSelectItem);
+    if (!item) return;
+    void addItem(list, item);
     setNewSelectItem("");
     newSelectItemInputRef.current?.focus();
   };
@@ -92,7 +88,7 @@ const AppendableSelectDropdown: React.FC<{
   const removeSelectItem = (event: React.MouseEvent, item: SelectItem) => {
     event.stopPropagation();
     if (value.includes(item.value)) onChange(value.filter((v) => v !== item.value));
-    saveSelectItems(selectItems.filter((selectItem) => selectItem.key !== item.key));
+    void removeItem(item.id);
     newSelectItemInputRef.current?.focus();
   };
 
@@ -207,7 +203,7 @@ const AppendableSelectDropdown: React.FC<{
             const selected = value.includes(item.value);
             return (
               <div
-                key={item.key}
+                key={item.id}
                 id={`${listId}-${index}`}
                 role="option"
                 aria-selected={selected}
@@ -219,9 +215,10 @@ const AppendableSelectDropdown: React.FC<{
                   selected && "bg-ink font-semibold text-white"
                 )}
               >
-                <span className="flex-auto truncate">{item.value}</span>
+                {/* Room for the Remove button, so long names end in an ellipsis before it */}
+                <span className={cn("flex-auto truncate", item.removable && "mr-[76px]")}>{item.value}</span>
                 {selected && <Check className="size-6" />}
-                {item.key > LAST_DEFAULT_KEY && (
+                {item.removable && (
                   <Button
                     size="sm"
                     className={cn(
@@ -240,12 +237,12 @@ const AppendableSelectDropdown: React.FC<{
 
         <div className="my-2 h-px bg-[rgba(5,5,5,0.06)]" />
 
-        <div className="inline-flex items-center gap-2 px-2 pb-1">
+        <div className="flex items-center gap-2 px-2 pb-1">
           <Input
             ref={newSelectItemInputRef}
-            className="form-control-clip"
+            className="form-control-clip w-0 flex-auto"
             placeholder="Enter new item"
-            maxLength={50}
+            maxLength={MAX_SELECT_ITEM_LENGTH}
             value={newSelectItem}
             onChange={(event) => setNewSelectItem(event.target.value.toLocaleUpperCase())}
             onKeyDown={(event) => {
@@ -255,10 +252,11 @@ const AppendableSelectDropdown: React.FC<{
               }
             }}
           />
-          <Button className="form-control-clip w-[140px]" onClick={addSelectItem} disabled={!newSelectItem}>
+          <Button className="form-control-clip w-[140px] shrink-0" onClick={addSelectItem} disabled={!normalizeSelectItem(newSelectItem)}>
             Add item
           </Button>
         </div>
+        {error && <p className="px-2 pb-1 text-xs text-[darkred]">{error}</p>}
       </PopoverContent>
     </Popover>
   );

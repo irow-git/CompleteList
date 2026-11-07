@@ -33,6 +33,11 @@ const api: ElectronApi = {
     list: (gameId) => ipcRenderer.invoke("covers:list", gameId),
     remove: (id) => ipcRenderer.invoke("covers:remove", id),
   },
+  selectItems: {
+    list: () => ipcRenderer.invoke("selectItems:list"),
+    add: (list, values) => ipcRenderer.invoke("selectItems:add", list, values),
+    remove: (id) => ipcRenderer.invoke("selectItems:remove", id),
+  },
   imageSync: {
     status: () => ipcRenderer.invoke("imageSync:status"),
     setRclonePath: (customPath) => ipcRenderer.invoke("imageSync:setRclonePath", customPath),
