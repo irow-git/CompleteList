@@ -5,7 +5,8 @@ import type { SeriesSummary } from "@/interfaces";
 import type { SeriesCandidate } from "@/lib/series";
 import { useGamesStore } from "@/store/gamesStore";
 import { useSyncStore } from "@/store/syncStore";
-import { Cover } from "@/components/games/Cover";
+import { Cover, coverColor } from "@/components/games/Cover";
+import { coverGlowColor, vividHex } from "@/lib/coverColor";
 import { SyncIndicator } from "@/components/games/SyncIndicator";
 import { SeriesChoice, SeriesChoiceDialog } from "@/components/SeriesChoiceDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -23,6 +24,9 @@ const COVER_WIDTH = ((COVER_HEIGHT * 2) / 3 / COLLAGE_RATIO) * 100; // in % of t
 const PAIR_GAP = 3;
 const MAX_STEP = COVER_WIDTH * 0.82;
 const SIDE_MARGIN = 3;
+// Hovering a cover (mouse or pen; touch gets none of this) brings it to the front, lifts it and makes it glow, and the
+// covers either side of it move this far apart (in % of the collage's width), at most
+const SPREAD = 6;
 
 // Where each of `count` covers goes, left to right, in the order the games are listed: the first at the left edge,
 // the second at the right, then the middle outwards, the third on top in the middle and the fourth just beneath it.
@@ -37,34 +41,88 @@ function collageSlots(count: number) {
   const step =
     count === 2 ? COVER_WIDTH + PAIR_GAP : count > 2 ? Math.min(MAX_STEP, (100 - COVER_WIDTH - 2 * SIDE_MARGIN) / (count - 1)) : 0;
   const start = (100 - (COVER_WIDTH + step * (count - 1))) / 2;
+  const spread = count > 2 ? Math.min(SPREAD, step * 0.6) : 0;
   return order.map((slot, index) => ({
+    slot,
     left: start + step * slot,
+    spread,
     // Closer to the middle is higher; between two equally close, the game listed first
     zIndex: Math.round((count - Math.abs(slot - center)) * 2) * 10 - index,
   }));
 }
 
-// Up to eight covers, fanned out and overlapping
+// The colour a hovered cover glows in: the cover's own most vivid colour (sampled once, as for the cards' glow), or the
+// placeholder's. Only worked out once the cover is first hovered
+function useGlowColor(game: SeriesSummary["games"][number], active: boolean) {
+  const [color, setColor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!active || color) return;
+    const fallback = vividHex(coverColor(game.title));
+    if (!game.cover_image) return setColor(fallback);
+    let live = true;
+    coverGlowColor(game.id, game.cover_image).then((sampled) => live && setColor(sampled ?? fallback));
+    return () => {
+      live = false;
+    };
+  }, [active, color, game.id, game.cover_image, game.title]);
+  return color;
+}
+
+const CollageCover: React.FC<{
+  game: SeriesSummary["games"][number];
+  left: number;
+  zIndex: number;
+  hovered: boolean;
+  onHover: () => void;
+}> = ({ game, left, zIndex, hovered, onHover }) => {
+  const glow = useGlowColor(game, hovered);
+  return (
+    <div
+      onPointerEnter={(event) => event.pointerType !== "touch" && onHover()}
+      className={cn(
+        "absolute transition-[left,transform,box-shadow] duration-200 ease-out motion-reduce:transition-none",
+        hovered ? "-translate-y-[3%] scale-105" : "shadow-[0_0_8px_rgba(0,0,0,0.75)]"
+      )}
+      style={{
+        left: `${left}%`,
+        width: `${COVER_WIDTH}%`,
+        top: `${((1 - COVER_HEIGHT) / 2) * 100}%`,
+        height: `${COVER_HEIGHT * 100}%`,
+        // Stacking order can't animate: the hovered cover jumps to the front, and the lift and glow ease it in
+        zIndex: hovered ? 1000 : zIndex,
+        ...(hovered && glow && { boxShadow: `0 0 14px 3px ${glow}, 0 0 6px rgba(0,0,0,0.75)` }),
+      }}
+    >
+      <Cover owner={game.id} image={game.cover_image} title={game.title} className="size-full" />
+    </div>
+  );
+};
+
+// The first few covers (PREVIEW_GAMES in electron/db/series.ts), fanned out and overlapping. A hovered cover comes to
+// the front and the others move aside, staying within the card
 const Collage: React.FC<{ games: SeriesSummary["games"] }> = ({ games }) => {
   const slots = collageSlots(games.length);
+  const [hovered, setHovered] = useState<number | null>(null);
+  const hoveredSlot = hovered === null ? null : slots[hovered].slot;
   return (
-    <div className="relative aspect-[16/9] overflow-hidden bg-[linear-gradient(0deg,black_0%,var(--color-ink)_100%)]">
-      {games.map((game, index) => (
-        <Cover
-          key={game.id}
-          owner={game.id}
-          image={game.cover_image}
-          title={game.title}
-          className="absolute shadow-[0_0_8px_rgba(0,0,0,0.75)]"
-          style={{
-            left: `${slots[index].left}%`,
-            width: `${COVER_WIDTH}%`,
-            top: `${((1 - COVER_HEIGHT) / 2) * 100}%`,
-            height: `${COVER_HEIGHT * 100}%`,
-            zIndex: slots[index].zIndex,
-          }}
-        />
-      ))}
+    <div
+      onPointerLeave={() => setHovered(null)}
+      className="relative aspect-[16/9] overflow-hidden bg-[linear-gradient(0deg,black_0%,var(--color-ink)_100%)]"
+    >
+      {games.map((game, index) => {
+        const { slot, left, spread, zIndex } = slots[index];
+        const away = hoveredSlot === null || slot === hoveredSlot ? 0 : Math.sign(slot - hoveredSlot) * spread;
+        return (
+          <CollageCover
+            key={game.id}
+            game={game}
+            left={Math.min(Math.max(left + away, 0), 100 - COVER_WIDTH)}
+            zIndex={zIndex}
+            hovered={index === hovered}
+            onHover={() => setHovered(index)}
+          />
+        );
+      })}
     </div>
   );
 };
