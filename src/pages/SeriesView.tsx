@@ -19,7 +19,8 @@ const SEARCH_DELAY_MS = 300;
 const COLLAGE_RATIO = 16 / 9;
 const COVER_HEIGHT = 0.86;
 const COVER_WIDTH = ((COVER_HEIGHT * 2) / 3 / COLLAGE_RATIO) * 100; // in % of the collage's width
-// Neighbouring covers always overlap a little, however few there are
+// Two covers sit side by side, with a gap between them. From three on they overlap, at least a little
+const PAIR_GAP = 3;
 const MAX_STEP = COVER_WIDTH * 0.82;
 const SIDE_MARGIN = 3;
 
@@ -33,7 +34,8 @@ function collageSlots(count: number) {
     .sort((a, b) => Math.abs(a - center) - Math.abs(b - center) || a - b);
   const order = count < 3 ? middleOut : [0, count - 1, ...middleOut];
 
-  const step = count > 1 ? Math.min(MAX_STEP, (100 - COVER_WIDTH - 2 * SIDE_MARGIN) / (count - 1)) : 0;
+  const step =
+    count === 2 ? COVER_WIDTH + PAIR_GAP : count > 2 ? Math.min(MAX_STEP, (100 - COVER_WIDTH - 2 * SIDE_MARGIN) / (count - 1)) : 0;
   const start = (100 - (COVER_WIDTH + step * (count - 1))) / 2;
   return order.map((slot, index) => ({
     left: start + step * slot,
