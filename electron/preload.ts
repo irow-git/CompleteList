@@ -14,6 +14,16 @@ const api: ElectronApi = {
     update: (game) => ipcRenderer.invoke("games:update", game),
     remove: (id) => ipcRenderer.invoke("games:remove", id),
   },
+  series: {
+    list: (search) => ipcRenderer.invoke("series:list", search),
+    get: (name) => ipcRenderer.invoke("series:get", name),
+    suggest: (title, release) => ipcRenderer.invoke("series:suggest", title, release),
+    suggestFor: (id) => ipcRenderer.invoke("series:suggestFor", id),
+    detect: () => ipcRenderer.invoke("series:detect"),
+    assign: (ids, name) => ipcRenderer.invoke("series:assign", ids, name),
+    save: (series) => ipcRenderer.invoke("series:save", series),
+    remove: (name) => ipcRenderer.invoke("series:remove", name),
+  },
   images: {
     save: (owner, cover) => ipcRenderer.invoke("images:save", owner, cover),
     folder: () => ipcRenderer.invoke("images:folder"),

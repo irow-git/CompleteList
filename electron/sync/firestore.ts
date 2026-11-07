@@ -21,7 +21,7 @@ import type { FirebaseConfig, GameDetails } from "../../src/interfaces";
 import { isImageRef } from "../../src/lib/imageRef";
 import { toScore } from "../../src/lib/score";
 import { toHours } from "../../src/lib/hours";
-import type { PushRecord, RemoteCover, RemoteMetadata, RemoteStore } from "./remote";
+import type { PushRecord, RemoteCover, RemoteDetails, RemoteMetadata, RemoteStore } from "./remote";
 
 // Everything lives under users/{uid}, split in two so a sync reads the cheap part first:
 //   gameMetadata/{id}  { parentId, createdAt, updatedAt, deletedAt, serverUpdatedAt }
@@ -99,7 +99,7 @@ const asFirebaseError = (error: unknown) => new Error(describeFirebaseError(erro
 
 const toDate = (value: unknown) => (value instanceof Timestamp ? value.toDate() : null);
 
-const toDetails = (data: Record<string, unknown>): GameDetails => ({
+const toDetails = (data: Record<string, unknown>): RemoteDetails => ({
   title: String(data.title ?? ""),
   completion: String(data.completion ?? ""),
   release_date: toDate(data.release_date),
@@ -114,6 +114,8 @@ const toDetails = (data: Record<string, unknown>): GameDetails => ({
   // Missing on games pushed before these fields existed
   score: toScore(data.score),
   hours: toHours(data.hours),
+  // Left out (rather than null) when the game was uploaded before series existed, so the local series is kept
+  ...("series" in data && { series: typeof data.series === "string" ? data.series : null }),
 });
 
 function firestoreRemote(firestore: Firestore, uid: string): RemoteStore {
@@ -153,7 +155,7 @@ function firestoreRemote(firestore: Firestore, uid: string): RemoteStore {
     },
 
     async fetchDetails(ids) {
-      const details = new Map<string, GameDetails>();
+      const details = new Map<string, RemoteDetails>();
       for (let start = 0; start < ids.length; start += DETAILS_PER_QUERY) {
         const chunk = ids.slice(start, start + DETAILS_PER_QUERY);
         const page = await getDocs(query(gamesCollection, where(documentId(), "in", chunk)));

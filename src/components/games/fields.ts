@@ -12,3 +12,6 @@ export const FIELD_LABELS: Record<SortableField, string> = {
   score: "Score",
   hours: "Hours",
 };
+
+// The sort menu's names: the title sort orders by series (a game without one by its title), see electron/db/games.ts
+export const SORT_LABELS: Record<SortableField, string> = { ...FIELD_LABELS, title: "Series / Title" };

@@ -45,6 +45,9 @@ const Main: React.FC<MainProps> = ({ children }) => {
             <Link to="card">
               <div className="nav-item">Card View</div>
             </Link>
+            <Link to="series">
+              <div className="nav-item">Series</div>
+            </Link>
             <img className="-ml-[3px] mt-5 mb-[5px] inline align-baseline" src="images/line-7.png" alt="line" width={105} draggable={false} />
             <Link to="settings">
               <div className="nav-item">Settings</div>

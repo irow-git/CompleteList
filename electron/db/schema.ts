@@ -21,8 +21,10 @@ export const games = sqliteTable(
     cover_image: text(), // see src/lib/imageRef.ts
     score: integer(), // 1–100
     hours: real(),
+    // The series a base game belongs to, by name (see src/lib/series.ts); always null on DLCs, which go with their game
+    series: text(),
   },
-  (table) => [index("games_parent_id_idx").on(table.parent_id)]
+  (table) => [index("games_parent_id_idx").on(table.parent_id), index("games_series_idx").on(table.series)]
 );
 
 // Sync bookkeeping, one row per game or DLC. Kept apart from the details so a sync can compare every

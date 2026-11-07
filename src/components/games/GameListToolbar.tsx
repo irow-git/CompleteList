@@ -12,15 +12,22 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 // sorting and search
 // `controls` are extra view-specific ones, shown before the sort menu (e.g. the card view's size slider)
 export const GameListToolbar = forwardRef<HTMLDivElement, { controls?: React.ReactNode }>(({ controls }, ref) => {
-  const { counts, total, search, separateDlcs, setSeparateDlcs } = useGamesStore(
-    useShallow(({ counts, total, search, separateDlcs, setSeparateDlcs }) => ({ counts, total, search, separateDlcs, setSeparateDlcs }))
+  const { counts, total, search, seriesFilter, separateDlcs, setSeparateDlcs } = useGamesStore(
+    useShallow(({ counts, total, search, seriesFilter, separateDlcs, setSeparateDlcs }) => ({
+      counts,
+      total,
+      search,
+      seriesFilter,
+      separateDlcs,
+      setSeparateDlcs,
+    }))
   );
 
   return (
     <div ref={ref} className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-3 font-chava text-base">
       <span className="font-pixel text-sm">
         {plural(counts.games, "game")} · {plural(counts.dlcs, "DLC")}
-        {search && <span className="text-black/55"> · {total} matching</span>}
+        {(search || seriesFilter) && <span className="text-black/55"> · {total} matching</span>}
       </span>
       <SyncIndicator />
       <div className="ml-auto flex flex-wrap items-center justify-end gap-4">

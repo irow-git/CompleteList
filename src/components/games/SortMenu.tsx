@@ -1,11 +1,11 @@
 import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, ChevronUp, SortVertical } from "pixelarticons/react";
 import { GameSort, SortableField } from "@/interfaces";
-import { useGamesStore } from "@/store/gamesStore";
+import { DEFAULT_SORT, useGamesStore } from "@/store/gamesStore";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FIELD_LABELS } from "./fields";
+import { SORT_LABELS } from "./fields";
 
 // Clicking a field cycles it: added ascending (at the end of the list) → descending → removed
 const toggle = (sort: GameSort[], field: SortableField): GameSort[] => {
@@ -30,7 +30,7 @@ export const SortMenu: React.FC = () => {
       </div>
       <PopoverContent align="end" className="w-64 rounded-none border-0 bg-ink p-2 font-chava text-white option-clip">
         <ul>
-          {(Object.keys(FIELD_LABELS) as SortableField[]).map((field) => {
+          {(Object.keys(SORT_LABELS) as SortableField[]).map((field) => {
             const index = sort.findIndex((entry) => entry.field === field);
             const direction = sort[index]?.direction;
             return (
@@ -42,7 +42,7 @@ export const SortMenu: React.FC = () => {
                   className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-left hover:bg-sand"
                 >
                   <span className="w-5 font-pixel text-xs text-white">{index >= 0 ? index + 1 : ""}</span>
-                  <span className="flex-auto">{FIELD_LABELS[field]}</span>
+                  <span className="flex-auto">{SORT_LABELS[field]}</span>
                   {direction === "asc" && <ChevronUp className="size-6" aria-label="ascending" />}
                   {direction === "desc" && <ChevronDown className="size-6" aria-label="descending" />}
                 </button>
@@ -58,6 +58,14 @@ export const SortMenu: React.FC = () => {
             className="cursor-pointer text-white hover:underline disabled:cursor-default disabled:opacity-30 disabled:hover:no-underline"
           >
             Clear
+          </button>
+          <button
+            type="button"
+            disabled={JSON.stringify(sort) === JSON.stringify(DEFAULT_SORT)}
+            onClick={() => setSort(DEFAULT_SORT)}
+            className="cursor-pointer text-white hover:underline disabled:cursor-default disabled:opacity-30 disabled:hover:no-underline"
+          >
+            Default
           </button>
         </div>
       </PopoverContent>

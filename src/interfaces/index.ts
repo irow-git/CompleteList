@@ -15,6 +15,8 @@ export interface GameDetails {
   // Optional: a whole number from 1 to 100 (see src/lib/score.ts), and hours played (see src/lib/hours.ts)
   score: number | null;
   hours: number | null;
+  // The series a base game belongs to (see src/lib/series.ts), or null. Always null on DLCs: they go with their game
+  series: string | null;
 }
 
 export interface IDLC extends GameDetails {
@@ -30,7 +32,8 @@ export interface IGame extends GameDetails {
 
 // What gets passed in when creating a game. The form gives the game and its DLCs their ids up front (covers are stored
 // in a folder per id before the game is saved); without one, the database assigns it
-export type NewGame = GameDetails & { id?: string; DLCs: (GameDetails & { id?: string })[] };
+// joinSeries: games without a series that go into the new game's series with it (from its series suggestion)
+export type NewGame = GameDetails & { id?: string; DLCs: (GameDetails & { id?: string })[]; joinSeries?: string[] };
 
 // What gets passed in when saving an existing game. DLCs without an id are new; existing DLCs left out are deleted
 export type GameUpdate = GameDetails & { id: string; DLCs: (GameDetails & { id?: string })[] };
@@ -63,12 +66,14 @@ export interface PageRequest {
   // title)
   search?: string;
   separateDlcs?: boolean;
+  // Only the games of this series (exact name, ignoring case); with separateDlcs, their DLCs too
+  series?: string;
 }
 
 // What the card view's ruler marks: titles' first letters, the year of a date, or a range of scores or hours
 export type CheckpointKind = "letter" | "release_date" | "last_completion" | "score" | "hours";
 
-export type CheckpointRequest = Pick<PageRequest, "sort" | "search" | "separateDlcs"> & { kind: CheckpointKind };
+export type CheckpointRequest = Pick<PageRequest, "sort" | "search" | "separateDlcs" | "series"> & { kind: CheckpointKind };
 
 // A run of consecutive entries (in the list's order) sharing a letter or year, and where it starts in the list
 export interface Checkpoint {
@@ -151,4 +156,29 @@ export interface ImageSyncResult {
   deleted: number;
   // Used by a game here but not in the cloud yet (e.g. picked on a computer that hasn't synced since)
   missing: number;
+}
+
+// A series and a glimpse of it, for the series screen: how many games it has and the first few (by release), whose
+// covers make up its card
+export interface SeriesSummary {
+  name: string;
+  count: number;
+  games: { id: string; title: string; cover_image: string | null }[];
+}
+
+// A base game as the series edit screen lists it
+export interface SeriesMember {
+  id: string;
+  title: string;
+  cover_image: string | null;
+  release_date: Date | null;
+  series: string | null;
+}
+
+// Saving the series edit screen: the series (renamed from oldName, or new when oldName is null) and its games.
+// Games that were in it and aren't listed leave it; listed games in another series move to this one
+export interface SeriesSave {
+  oldName: string | null;
+  name: string;
+  memberIds: string[];
 }

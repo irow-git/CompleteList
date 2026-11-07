@@ -13,19 +13,9 @@ import { formatDay } from "@/lib/dates";
 import { imageUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 import { HIGHLIGHTED_TAGS } from "@/lib/tags";
-import { titleWithoutArticle } from "@/lib/titles";
+import { CoverLetter, coverBackground, coverColor } from "@/components/games/Cover";
 import { formatHours, glowLevel } from "@/lib/hours";
 import { coverGlowColor, vividHex } from "@/lib/coverColor";
-
-// Games without a cover (or whose image isn't on this computer yet) get a placeholder: the title's first letter on a
-// colour picked from the title, so a game keeps the same colour between visits
-const COVER_COLORS = ["#47434d", "#7e768a", "#555559", "#6b5d52", "#4e5b63", "#5f4b57", "#3f5246"];
-
-const coverColor = (title: string) => {
-  let hash = 0;
-  for (const char of title) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return COVER_COLORS[Math.abs(hash) % COVER_COLORS.length];
-};
 
 // Card width in px, set with the slider (like GOG's) and remembered on this computer
 const CARD_SIZE_KEY = "card-size";
@@ -103,15 +93,13 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
 
   return (
     <article
-      className={cn("group relative aspect-[9/21]", glow ? `card-glow-${glow.level}` : "drop-shadow-[1px_2px_3px_black]")}
+      // touch-manipulation: no double-tap zoom, so a double tap can open the game's page
+      className={cn("group relative aspect-[9/21] touch-manipulation select-none", glow ? `card-glow-${glow.level}` : "drop-shadow-[1px_2px_3px_black]")}
       style={glow ? ({ "--glow": glow.color } as React.CSSProperties) : undefined}
       {...hover(game)}
     >
       <div className="option-clip flex h-full flex-col bg-white">
-        <div
-          className="relative aspect-[2/3] shrink-0"
-          style={{ background: `linear-gradient(0deg, black 0%, ${coverColor(game.title)} 100%)` }}
-        >
+        <div className="@container relative aspect-[2/3] shrink-0" style={{ background: coverBackground(game.title) }}>
           {showCover ? (
             <img
               src={imageUrl(game.id, game.cover_image!)}
@@ -121,9 +109,7 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
               className="absolute inset-0 size-full object-cover"
             />
           ) : (
-            <span aria-hidden className="absolute inset-0 flex items-center justify-center font-pixel text-[calc(var(--card-width)*0.45)] text-white/85">
-              {titleWithoutArticle(game.title).charAt(0).toUpperCase()}
-            </span>
+            <CoverLetter title={game.title} />
           )}
           <div className="absolute top-2 right-2 left-2 flex items-start gap-1">
             <div className="flex min-w-0 flex-auto flex-col items-start gap-1">
@@ -188,9 +174,9 @@ const GameCard: React.FC<{ game: IGame }> = ({ game }) => {
 };
 
 const CardView: React.FC = () => {
-  const { games, total, search, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil } = useGamesStore(
-    useShallow(({ games, total, search, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil }) =>
-      ({ games, total, search, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil }))
+  const { games, total, search, seriesFilter, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil } = useGamesStore(
+    useShallow(({ games, total, search, seriesFilter, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil }) =>
+      ({ games, total, search, seriesFilter, sort, separateDlcs, status, infinite, restoreCards, loadMore, loadUntil }))
   );
   const [cardWidth, setCardWidth] = useState(savedCardSize);
   const root = useRef<HTMLDivElement>(null);
@@ -294,7 +280,7 @@ const CardView: React.FC = () => {
       return;
     }
     scroller()?.scrollTo({ top: 0 });
-  }, [sort, search, separateDlcs]);
+  }, [sort, search, seriesFilter, separateDlcs]);
 
   // Load the next page when the end of the list comes within reach. The observer is recreated whenever more games
   // arrive: observing reports the current state right away, so a screen tall enough to show them all keeps loading
@@ -342,7 +328,7 @@ const CardView: React.FC = () => {
         <CardRuler currentIndex={currentIndex} onJump={jumpTo} below={toolbar} />
         {games.length === 0 && status !== "loading" ? (
           <p className="py-12 text-center font-pixel text-sm text-black/45">
-            {search ? `No games match "${search}"` : "No games yet"}
+            {search ? `No games match "${search}"` : seriesFilter ? `No games in ${seriesFilter}` : "No games yet"}
           </p>
         ) : (
           <div

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { Bookmark, ChevronDown, ChevronUp } from "pixelarticons/react";
 import { Checkpoint, CheckpointKind, GameSort, SortableField } from "@/interfaces";
-import { useGamesStore } from "@/store/gamesStore";
+import { DEFAULT_SORT, useGamesStore } from "@/store/gamesStore";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
@@ -106,7 +106,11 @@ export const RulerMenu: React.FC = () => {
                   onClick={() => {
                     if (isActive) return setKind(null);
                     setKind(ruler.kind);
-                    if (sort[0]?.field !== ruler.field) setSort([{ field: ruler.field, direction: "asc" }]);
+                    // A sort that already starts with the ruler's field stays as it is, ties broken the same way.
+                    // Otherwise the A–Z ruler brings back the default order (series, then release), the rest sort by
+                    // their field alone
+                    if (sort[0]?.field !== ruler.field)
+                      setSort(ruler.field === DEFAULT_SORT[0].field ? DEFAULT_SORT : [{ field: ruler.field, direction: "asc" }]);
                   }}
                   className="flex flex-auto cursor-pointer items-center gap-2 px-2 py-1.5 text-left hover:bg-sand hover:text-ink"
                 >
@@ -165,8 +169,8 @@ export const CardRuler: React.FC<{
   // The ruler starts below this (the toolbar), so it never covers it, however many lines the toolbar wraps onto
   below: React.RefObject<HTMLElement>;
 }> = ({ currentIndex, onJump, below }) => {
-  const { sort, search, separateDlcs, total } = useGamesStore(
-    useShallow(({ sort, search, separateDlcs, total }) => ({ sort, search, separateDlcs, total }))
+  const { sort, search, separateDlcs, seriesFilter, total } = useGamesStore(
+    useShallow(({ sort, search, separateDlcs, seriesFilter, total }) => ({ sort, search, separateDlcs, seriesFilter, total }))
   );
   const ruler = useActiveRuler();
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
@@ -179,11 +183,13 @@ export const CardRuler: React.FC<{
   useEffect(() => {
     if (!ruler) return setCheckpoints([]);
     let current = true;
-    window.api.games.checkpoints({ kind: ruler.kind, sort, search, separateDlcs }).then((result) => current && setCheckpoints(result));
+    window.api.games
+      .checkpoints({ kind: ruler.kind, sort, search, separateDlcs, series: seriesFilter ?? undefined })
+      .then((result) => current && setCheckpoints(result));
     return () => {
       current = false;
     };
-  }, [ruler, sort, search, separateDlcs, total]);
+  }, [ruler, sort, search, separateDlcs, seriesFilter, total]);
 
   // Fixed in <main>'s left padding, right next to the sidebar, from just below the toolbar to near the bottom: it stays
   // put while the cards scroll. Measured, since <main>'s position depends on the sidebar and header, and the toolbar's

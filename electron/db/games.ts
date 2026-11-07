@@ -5,6 +5,7 @@ import { isImageRef, isOwnerId } from "../../src/lib/imageRef";
 import { deleteCoversOf, recordCover } from "./covers";
 import { toScore } from "../../src/lib/score";
 import { HOURS_RANGES, toHours } from "../../src/lib/hours";
+import { normalizeSeries, sameSeries } from "../../src/lib/series";
 import type {
   GameDetails,
   Checkpoint,
@@ -38,23 +39,35 @@ export const detailsOf = (game: GameDetails): GameDetails => ({
   cover_image: isImageRef(game.cover_image) ? game.cover_image : null,
   score: toScore(game.score),
   hours: toHours(game.hours),
+  series: normalizeSeries(game.series),
 });
+
+// DLCs never have a series of their own: they go with their game's
+const dlcDetailsOf = (dlc: GameDetails): GameDetails => ({ ...detailsOf(dlc), series: null });
 
 const sameDetails = (a: GameDetails, b: GameDetails) => JSON.stringify(detailsOf(a)) === JSON.stringify(detailsOf(b));
 
 const toGame = (base: GameRow, dlcs: GameRow[]): IGame => ({
   id: base.id,
   ...detailsOf(base),
-  DLCs: dlcs.map((dlc) => ({ id: dlc.id, ...detailsOf(dlc) })),
+  DLCs: dlcs.map((dlc) => ({ id: dlc.id, ...dlcDetailsOf(dlc) })),
 });
 
 // Titles sort without a leading "The " or "A " ("The Witcher 3" under W), ignoring case. LIKE is case-insensitive
-const titleWithoutArticle = sql`(case
-  when ${games.title} like 'the %' then substr(${games.title}, 5)
-  when ${games.title} like 'a %' then substr(${games.title}, 3)
-  else ${games.title}
+const withoutArticle = (text: SQL | typeof games.title) => sql`(case
+  when ${text} like 'the %' then substr(${text}, 5)
+  when ${text} like 'a %' then substr(${text}, 3)
+  else ${text}
 end)`;
-const sortableTitle = sql`${titleWithoutArticle} collate nocase`;
+const sortableTitle = sql`${withoutArticle(games.title)} collate nocase`;
+
+// The series an entry belongs to: a base game's own, or for a DLC (listed on its own), its game's
+const seriesOf = sql`coalesce(${games.series}, (select parent.series from games parent where parent.id = ${games.parent_id}))`;
+
+// What the title sort orders by: the series, so the games of a series tie and the next sort orders them. A game
+// without one is a series of its own (its title), and a DLC goes with its game
+const seriesName = sql`coalesce(${games.series}, (select coalesce(parent.series, parent.title) from games parent where parent.id = ${games.parent_id}), ${games.title})`;
+const sortableSeries = sql`${withoutArticle(seriesName)} collate nocase`;
 
 // By title, with the id as a tiebreaker so pages never overlap
 const listOrder = [sortableTitle, games.id];
@@ -65,7 +78,7 @@ const sortExpressions: Record<SortableField, SQL> = {
   // Service games show "Service" in this column, so they sort after the plain yes/no values
   original_copy: sql`${games.service} * 2 + ${games.original_copy}`,
   free_to_play: sql`${games.free_to_play}`,
-  title: sortableTitle,
+  title: sortableSeries,
   completion: sql`${games.completion} collate nocase`,
   release_date: sql`${games.release_date}`,
   last_completion: sql`${games.last_completion}`,
@@ -106,13 +119,14 @@ const usableId = (tx: Tx, id: string | undefined) =>
   isOwnerId(id) && !tx.select({ id: games.id }).from(games).where(eq(games.id, id)).get() ? id : undefined;
 
 const insertRow = (tx: Tx, details: GameDetails & { id?: string }, parentId: string | null, now: Date) => {
-  const row = tx.insert(games).values({ ...detailsOf(details), id: usableId(tx, details.id), parent_id: parentId }).returning().get();
+  const values = parentId ? dlcDetailsOf(details) : detailsOf(details);
+  const row = tx.insert(games).values({ ...values, id: usableId(tx, details.id), parent_id: parentId }).returning().get();
   tx.insert(gameMetadata).values({ game_id: row.id, created_at: now, updated_at: now }).run();
   recordCover(tx, row.id, row.cover_image, now);
   return row;
 };
 
-const markChanged = (tx: Tx, ids: string[], now: Date, deleted = false) => {
+export const markChanged = (tx: Tx, ids: string[], now: Date, deleted = false) => {
   if (ids.length === 0) return;
   tx.update(gameMetadata)
     .set({ updated_at: now, dirty: true, ...(deleted && { deleted_at: now }) })
@@ -120,11 +134,30 @@ const markChanged = (tx: Tx, ids: string[], now: Date, deleted = false) => {
     .run();
 };
 
+// Puts live base games in a series (or takes them out, with null). Every series change goes through here, so each game
+// it actually changes counts as edited: a new updated_at, and unsynced until the next sync uploads it. Returns those ids
+export function setSeriesOf(tx: Tx, ids: string[], series: string | null, now: Date): string[] {
+  const name = normalizeSeries(series);
+  if (ids.length === 0) return [];
+  const changed = tx
+    .select({ id: games.id })
+    .from(games)
+    .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
+    .where(and(isLive, isNull(games.parent_id), inArray(games.id, ids), sql`${games.series} is not ${name}`))
+    .all()
+    .map((row) => row.id);
+  if (changed.length === 0) return [];
+  tx.update(games).set({ series: name }).where(inArray(games.id, changed)).run();
+  markChanged(tx, changed, now);
+  return changed;
+}
+
 // A calendar day as the table shows it ("2015-May-19") and as "2015-05-19", so either form can be searched
 const searchableDay = (day: Date | null) => (day ? [formatDay(day), day.toISOString().slice(0, 10)] : []);
 
 const searchKeys = [
   { name: "title", weight: 3 },
+  { name: "series", weight: 2 },
   { name: "dlcTitles", weight: 2 },
   "parentTitle",
   "platform",
@@ -149,18 +182,22 @@ const toFuseQuery = (search: string) => ({
 // Ids of the entries matching a search, best match first. SQLite has no typo-tolerant search, and a personal
 // collection is small enough to rank in memory. Normally the entries are base games, and a matching DLC brings up its
 // base game; with separate DLCs, a DLC is matched on its own (and by its game's title)
-function searchGameIds(db: Db, search: string, separateDlcs = false): string[] {
+function searchGameIds(db: Db, search: string, separateDlcs = false, series?: string): string[] {
   const rows = liveRows(db);
   const titles = new Map(rows.map((row) => [row.id, row.title]));
+  const seriesById = new Map(rows.map((row) => [row.id, row.series]));
   const dlcTitles = new Map<string, string[]>();
   for (const row of rows) {
     if (row.parent_id) dlcTitles.set(row.parent_id, [...(dlcTitles.get(row.parent_id) ?? []), row.title]);
   }
+  const seriesOfRow = (row: GameRow) => (row.parent_id ? (seriesById.get(row.parent_id) ?? null) : row.series);
   const documents = rows
     .filter((row) => separateDlcs || !row.parent_id)
+    .filter((row) => !series || sameSeries(seriesOfRow(row), series))
     .map((row) => ({
       id: row.id,
       title: row.title,
+      series: seriesOfRow(row) ?? "",
       dlcTitles: dlcTitles.get(row.id),
       parentTitle: row.parent_id ? (titles.get(row.parent_id) ?? "") : "",
       platform: row.platform,
@@ -185,16 +222,22 @@ function searchGameIds(db: Db, search: string, separateDlcs = false): string[] {
   return fuse.search(toFuseQuery(search)).map((result) => result.item.id);
 }
 
-// Live entries of a list: base games, or every game and DLC
-const listedRows = (separateDlcs: boolean | undefined, matchingIds: string[] | null) =>
-  and(isLive, separateDlcs ? undefined : isNull(games.parent_id), matchingIds ? inArray(games.id, matchingIds) : undefined);
+// Live entries of a list: base games, or every game and DLC; only those of one series, when it's narrowed to one
+const listedRows = (separateDlcs: boolean | undefined, matchingIds: string[] | null, series: string | undefined) =>
+  and(
+    isLive,
+    separateDlcs ? undefined : isNull(games.parent_id),
+    matchingIds ? inArray(games.id, matchingIds) : undefined,
+    series ? sql`${seriesOf} = ${series} collate nocase` : undefined
+  );
 
-export function listGames(db: Db, { page, pageSize, sort, search, separateDlcs }: PageRequest): GamePage {
+export function listGames(db: Db, { page, pageSize, sort, search, separateDlcs, series: seriesFilter }: PageRequest): GamePage {
   const query = search?.trim();
-  const matchingIds = query ? searchGameIds(db, query, separateDlcs) : null;
+  const series = normalizeSeries(seriesFilter) ?? undefined;
+  const matchingIds = query ? searchGameIds(db, query, separateDlcs, series) : null;
   if (matchingIds?.length === 0) return { games: [], total: 0, counts: countGames(db) };
 
-  const isListed = listedRows(separateDlcs, matchingIds);
+  const isListed = listedRows(separateDlcs, matchingIds, series);
   const selectBases = (where: SQL | undefined) =>
     db.select({ game: games }).from(games).innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id)).where(where);
 
@@ -234,7 +277,8 @@ export function listGames(db: Db, { page, pageSize, sort, search, separateDlcs }
     );
     const entries = bases.map((row) => {
       const parent = row.parent_id ? parents.get(row.parent_id) : undefined;
-      return { ...toGame(row, dlcsByParent.get(row.id) ?? []), ...(parent && { parent }) };
+      const entry = row.parent_id ? { ...toGame(row, []), series: null } : toGame(row, dlcsByParent.get(row.id) ?? []);
+      return { ...entry, ...(parent && { parent }) };
     });
     return { games: entries, total, counts: countGames(db) };
   }
@@ -257,7 +301,7 @@ const hoursRange = sql.join(
 // The key a ruler checkpoint groups games by: the letter the title sorts under, a date's year, the score's tens (90
 // takes in 100) or the hours range; null without a value
 const checkpointKey = {
-  letter: sql<string | null>`upper(substr(${titleWithoutArticle}, 1, 1))`,
+  letter: sql<string | null>`upper(substr(${withoutArticle(seriesName)}, 1, 1))`,
   release_date: sql<string | null>`strftime('%Y', ${games.release_date} / 1000, 'unixepoch')`,
   last_completion: sql<string | null>`strftime('%Y', ${games.last_completion} / 1000, 'unixepoch')`,
   score: sql<string | null>`cast(min(${games.score}, 99) / 10 * 10 as text)`,
@@ -267,17 +311,18 @@ const checkpointKey = {
 // Where each letter, year or range starts in the list as it's currently sorted and searched, for the card view's ruler.
 // Consecutive games with the same key form one checkpoint, so it also follows descending sorts and puts games without
 // a date last, just like the list does
-export function listCheckpoints(db: Db, { sort, search, kind, separateDlcs }: CheckpointRequest): Checkpoint[] {
+export function listCheckpoints(db: Db, { sort, search, kind, separateDlcs, series: seriesFilter }: CheckpointRequest): Checkpoint[] {
   if (!(kind in checkpointKey)) return [];
   const query = search?.trim();
-  const matchingIds = query ? searchGameIds(db, query, separateDlcs) : null;
+  const series = normalizeSeries(seriesFilter) ?? undefined;
+  const matchingIds = query ? searchGameIds(db, query, separateDlcs, series) : null;
   if (matchingIds?.length === 0) return [];
 
   const rows = db
     .select({ id: games.id, key: checkpointKey[kind] })
     .from(games)
     .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
-    .where(listedRows(separateDlcs, matchingIds))
+    .where(listedRows(separateDlcs, matchingIds, series))
     .orderBy(...orderFor(sort))
     .all();
   // Without a sort, search results are in relevance order
@@ -316,11 +361,16 @@ export function getGame(db: Db, id: string): IGame | null {
   return base ? toGame(base, liveRows(db, eq(games.parent_id, id))) : null;
 }
 
+// The game's series, if it has one, can bring games without a series along (joinSeries: the series suggestion's
+// matches), in the same transaction
 export function createGame(db: Db, game: NewGame): IGame {
   return db.transaction((tx) => {
     const now = new Date();
     const base = insertRow(tx, game, null, now);
     const dlcs = game.DLCs.map((dlc) => insertRow(tx, dlc, base.id, now));
+    if (base.series && game.joinSeries?.length) {
+      setSeriesOf(tx, game.joinSeries.filter((id) => id !== base.id), base.series, now);
+    }
     return toGame(base, dlcs);
   });
 }
@@ -343,8 +393,8 @@ export function updateGame(db: Db, game: GameUpdate): IGame {
       const current = dlc.id ? existing.get(dlc.id) : undefined;
       if (!current) {
         insertRow(tx, dlc, base.id, now);
-      } else if (!sameDetails(current, dlc)) {
-        tx.update(games).set(detailsOf(dlc)).where(eq(games.id, current.id)).run();
+      } else if (!sameDetails(current, dlcDetailsOf(dlc))) {
+        tx.update(games).set(dlcDetailsOf(dlc)).where(eq(games.id, current.id)).run();
         markChanged(tx, [current.id], now);
         recordCover(tx, current.id, detailsOf(dlc).cover_image, now);
       }

@@ -11,9 +11,13 @@ import type {
   ImageSyncStatus,
   NewGame,
   PageRequest,
+  SeriesMember,
+  SeriesSave,
+  SeriesSummary,
   SyncResult,
   SyncStatus,
 } from "../src/interfaces";
+import type { SeriesSuggestion } from "../src/lib/series";
 
 // Contract between the preload script and the renderer: everything the React app can ask the main process for.
 // The preload implements it, and src/electron.d.ts types `window.api` with it.
@@ -29,6 +33,25 @@ export interface ElectronApi {
     create(game: NewGame): Promise<IGame>;
     update(game: GameUpdate): Promise<IGame>;
     remove(id: string): Promise<void>;
+  };
+  series: {
+    // Every series (or those matching the search, by name or by their games' titles), by name
+    list(search?: string): Promise<SeriesSummary[]>;
+    // A series and its games by release, or null if no game is in it
+    get(name: string): Promise<{ name: string; members: SeriesMember[] } | null>;
+    // Which series a new game with this title likely belongs to (its release date names a series after the oldest game)
+    suggest(title: string, release?: Date | null): Promise<SeriesSuggestion>;
+    // The same for a game in the collection; null if it's already in a series
+    suggestFor(id: string): Promise<{ title: string; suggestion: SeriesSuggestion } | null>;
+    // Saves every clear match among the games without a series; returns how many games got one, and the games it
+    // couldn't decide for
+    detect(): Promise<{ assigned: number; unclear: string[] }>;
+    // Puts games in a series, or takes them out of theirs with null
+    assign(ids: string[], name: string | null): Promise<void>;
+    // Renames a series and sets its games; resolves to the saved name. Rejects if the name belongs to another series
+    save(series: SeriesSave): Promise<string>;
+    // Takes every game out of the series
+    remove(name: string): Promise<void>;
   };
   images: {
     // Stores a cropped cover (WebP, see cropCover in src/lib/images.ts) in the folder of the game or DLC it's for (once,

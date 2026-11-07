@@ -9,14 +9,15 @@ import type { Db } from "../db";
 import { createGame, getGame, listGames, removeCover, removeGame, updateGame } from "../db/games";
 import { coversForImageSync, listCovers } from "../db/covers";
 import * as schema from "../db/schema";
+import { assignSeries, deleteSeries, detectAll, saveSeries } from "../db/series";
 import { resetSync, runSync, syncStatus } from "./engine";
-import type { PushRecord, RemoteCover, RemoteMetadata, RemoteStore } from "./remote";
+import type { PushRecord, RemoteCover, RemoteDetails, RemoteMetadata, RemoteStore } from "./remote";
 
 // Stands in for Firestore. It has its own clock, unrelated to either device's, like Firestore's serverTimestamp()
 class FakeRemote implements RemoteStore {
   serverTime = 5_000;
   metadata = new Map<string, RemoteMetadata>();
-  details = new Map<string, GameDetails>();
+  details = new Map<string, RemoteDetails>();
   covers = new Map<string, RemoteCover & { serverUpdatedAt: number }>();
   beforePush?: () => void;
 
@@ -74,6 +75,7 @@ const details = (title: string, extra: Partial<GameDetails> = {}): GameDetails =
   cover_image: null,
   score: null,
   hours: null,
+  series: null,
   ...extra,
 });
 
@@ -280,4 +282,108 @@ test("deleting a game deletes its covers, and their tombstones outlive the purge
 
   expect(getGame(a, game.id)).toBeNull();
   expect(coversForImageSync(a)).toEqual({ live: [], deleted: [{ gameId: game.id, image: `${"cd".repeat(32)}.webp` }] });
+});
+
+// Series
+
+const seriesOf = (db: Db, id: string) => getGame(db, id)?.series ?? null;
+
+test("a series set on one device makes it out of date until synced, and reaches the other", async () => {
+  const halo = createGame(a, { ...details("Halo"), DLCs: [] });
+  const halo2 = createGame(a, { ...details("Halo 2"), DLCs: [] });
+  await runSync(a, remote);
+  await runSync(b, remote);
+  expect(syncStatus(a, true).pendingChanges).toBe(0);
+
+  setClock("2026-01-01T11:00:00Z");
+  expect(detectAll(a)).toEqual({ assigned: 2, unclear: [] });
+  expect(syncStatus(a, true).pendingChanges).toBe(2);
+  // B hasn't heard of it yet
+  expect(seriesOf(b, halo.id)).toBeNull();
+
+  expect(await runSync(a, remote)).toMatchObject({ pushed: 2 });
+  expect(await runSync(b, remote)).toMatchObject({ pulled: 2 });
+  expect(seriesOf(b, halo.id)).toBe("Halo");
+  expect(seriesOf(b, halo2.id)).toBe("Halo");
+  expect(syncStatus(b, true).pendingChanges).toBe(0);
+});
+
+test("a new game joining a series marks the games it brings in as changed", async () => {
+  const halo = createGame(a, { ...details("Halo"), DLCs: [] });
+  await runSync(a, remote);
+  await runSync(b, remote);
+
+  setClock("2026-01-01T11:00:00Z");
+  createGame(a, { ...details("Halo 2"), series: "Halo", joinSeries: [halo.id], DLCs: [] });
+  expect(syncStatus(a, true).pendingChanges).toBe(2);
+  await runSync(a, remote);
+  await runSync(b, remote);
+  expect(seriesOf(b, halo.id)).toBe("Halo");
+});
+
+test("renaming and deleting a series reach the other device", async () => {
+  const halo = createGame(a, { ...details("Halo"), DLCs: [] });
+  const halo2 = createGame(a, { ...details("Halo 2"), DLCs: [] });
+  assignSeries(a, [halo.id, halo2.id], "Halo");
+  await runSync(a, remote);
+  await runSync(b, remote);
+
+  setClock("2026-01-01T11:00:00Z");
+  saveSeries(a, { oldName: "Halo", name: "Halo Saga", memberIds: [halo.id, halo2.id] });
+  await runSync(a, remote);
+  await runSync(b, remote);
+  expect([seriesOf(b, halo.id), seriesOf(b, halo2.id)]).toEqual(["Halo Saga", "Halo Saga"]);
+
+  setClock("2026-01-01T12:00:00Z");
+  deleteSeries(b, "Halo Saga");
+  expect(syncStatus(b, true).pendingChanges).toBe(2);
+  await runSync(b, remote);
+  await runSync(a, remote);
+  expect([seriesOf(a, halo.id), seriesOf(a, halo2.id)]).toEqual([null, null]);
+});
+
+test("a game uploaded by a version without series keeps this device's series, and uploads it again", async () => {
+  const halo = createGame(a, { ...details("Halo"), series: "Halo", DLCs: [] });
+  await runSync(a, remote);
+  await runSync(b, remote);
+
+  // Another computer, still on the old version, edits the game: its upload has no series at all
+  setClock("2026-01-01T11:00:00Z");
+  const { series: _series, ...oldDetails } = { ...remote.details.get(halo.id)!, comment: "From the old version" };
+  remote.details.set(halo.id, oldDetails);
+  remote.metadata.set(halo.id, { ...remote.metadata.get(halo.id)!, updatedAt: new Date(), serverUpdatedAt: ++remote.serverTime });
+
+  expect(await runSync(a, remote)).toMatchObject({ pulled: 1, pushed: 1 });
+  expect(getGame(a, halo.id)).toMatchObject({ comment: "From the old version", series: "Halo" });
+  expect(remote.details.get(halo.id)?.series).toBe("Halo");
+  await runSync(b, remote);
+  expect(getGame(b, halo.id)).toMatchObject({ comment: "From the old version", series: "Halo" });
+});
+
+test("an explicit null from the cloud does take a game out of its series", async () => {
+  const halo = createGame(a, { ...details("Halo"), series: "Halo", DLCs: [] });
+  await runSync(a, remote);
+  await runSync(b, remote);
+
+  setClock("2026-01-01T11:00:00Z");
+  updateGame(b, { ...getGame(b, halo.id)!, series: null });
+  await runSync(b, remote);
+  await runSync(a, remote);
+  expect(seriesOf(a, halo.id)).toBeNull();
+});
+
+test("when both devices put a game in different series offline, the later change wins on both", async () => {
+  const game = createGame(a, { ...details("Batman: Arkham City"), DLCs: [] });
+  await runSync(a, remote);
+  await runSync(b, remote);
+
+  setClock("2026-01-02T10:00:00Z");
+  assignSeries(a, [game.id], "Batman");
+  setClock("2026-01-02T12:00:00Z");
+  assignSeries(b, [game.id], "Arkham");
+
+  await runSync(a, remote);
+  await runSync(b, remote);
+  await runSync(a, remote);
+  expect([seriesOf(a, game.id), seriesOf(b, game.id)]).toEqual(["Arkham", "Arkham"]);
 });
