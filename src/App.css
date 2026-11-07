@@ -11,14 +11,17 @@
   cursor: pointer;
 }
 
-a {
-  color: inherit;
-  text-decoration: inherit;
-}
+/* In Tailwind's base layer, so utilities win over it: a link styled as an ink button keeps its white text */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
 
-a:hover {
-  color: inherit;
-  text-decoration: inherit;
+  a:hover {
+    color: inherit;
+    text-decoration: inherit;
+  }
 }
 
 .DLC-outer {

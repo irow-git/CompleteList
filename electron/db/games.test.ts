@@ -6,8 +6,9 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type { GameDetails } from "../../src/interfaces";
 import type { Db } from ".";
-import { createGame, getGame, listCheckpoints, listGames, removeCover, removeGame, updateGame } from "./games";
+import { createGame, detailsOf, getGame, listCheckpoints, listGames, removeCover, removeGame, setSeriesOf, updateGame } from "./games";
 import { listCovers } from "./covers";
+import { assignSeries, deleteSeries, detectAll, getSeries, listSeries, saveSeries, suggestForGame, suggestForTitle } from "./series";
 import * as schema from "./schema";
 
 const details = (title: string): GameDetails => ({
@@ -24,6 +25,7 @@ const details = (title: string): GameDetails => ({
   cover_image: null,
   score: null,
   hours: null,
+  series: null,
 });
 
 const metadataOf = (db: Db, id: string) =>
@@ -285,24 +287,23 @@ test("separate DLCs are entries of their own: sorted, searched, paged and ruled 
     ["Witcher 3", null],
     ["Hearts of Stone", "Witcher 3"],
   ]);
-  expect(byScore.games.every((game) => game.DLCs.length === 0)).toBe(true);
+  // DLC entries have none of their own; games keep theirs nested too
+  expect(byScore.games.filter((game) => game.parent).every((game) => game.DLCs.length === 0)).toBe(true);
   expect(byScore.total).toBe(5);
   expect(byScore.counts).toEqual({ games: 2, dlcs: 3 });
 
   // Paging counts DLCs too
   expect(listGames(db, { ...separate, page: 1, pageSize: 2 }).games.map((game) => game.title)).toEqual(["Hearts of Stone", "Shadow of the Erdtree"]);
-  // A DLC matches on its own title, or on its game's
-  expect(listGames(db, { ...separate, search: "erdtree" }).games.map((game) => game.title)).toEqual(["Shadow of the Erdtree"]);
+  // A DLC matches on its own title, or on its game's; a game on its DLCs' titles too
+  expect(listGames(db, { ...separate, search: "erdtree" }).games.map((game) => game.title).sort()).toEqual(["Elden Ring", "Shadow of the Erdtree"]);
   expect(listGames(db, { ...separate, search: "witcher" }).games.map((game) => game.title).sort()).toEqual(["Blood and Wine", "Hearts of Stone", "Witcher 3"]);
   // Without the option, DLCs stay nested and only games count
   expect(listGames(db, firstPage).games.map((game) => game.title)).toEqual(["Elden Ring", "Witcher 3"]);
 
+  // The title sort is by series, and a DLC goes with its game, so the ruler marks the games' letters
   expect(listCheckpoints(db, { kind: "letter", sort: [{ field: "title", direction: "asc" }], separateDlcs: true })).toEqual([
-    { label: "B", index: 0, count: 1 },
-    { label: "E", index: 1, count: 1 },
-    { label: "H", index: 2, count: 1 },
-    { label: "S", index: 3, count: 1 },
-    { label: "W", index: 4, count: 1 },
+    { label: "E", index: 0, count: 2 },
+    { label: "W", index: 2, count: 3 },
   ]);
 });
 
@@ -348,4 +349,166 @@ test("gets a base game with its DLCs; DLC ids and deleted games give null", () =
 
 test("updating a missing game throws", () => {
   expect(() => updateGame(db, { ...details("Ghost"), id: "nope", DLCs: [] })).toThrow("not found");
+});
+
+// Series
+
+const released = (title: string, year: number, extra: Partial<GameDetails> = {}): GameDetails => ({
+  ...details(title),
+  release_date: new Date(Date.UTC(year, 0, 1)),
+  ...extra,
+});
+const titles = (request: Partial<Parameters<typeof listGames>[1]> = {}) =>
+  listGames(db, { ...firstPage, ...request }).games.map((game) => game.title);
+
+test("the title sort is by series, so the next sort orders the games within one", () => {
+  createGame(db, { ...released("Halo 3", 2007), series: "Halo", DLCs: [] });
+  createGame(db, { ...released("Halo: Combat Evolved", 2001), series: "Halo", DLCs: [] });
+  createGame(db, { ...released("Halo 2", 2004), series: "Halo", DLCs: [] });
+  createGame(db, { ...released("Hades", 2020), DLCs: [] });
+  createGame(db, { ...released("Celeste", 2018), DLCs: [] });
+
+  const byTitleThenRelease = [
+    { field: "title", direction: "asc" },
+    { field: "release_date", direction: "asc" },
+  ] as const;
+  expect(titles({ sort: [...byTitleThenRelease] })).toEqual(["Celeste", "Hades", "Halo: Combat Evolved", "Halo 2", "Halo 3"]);
+  // On its own, the title sort leaves a series in title order
+  expect(titles({ sort: [{ field: "title", direction: "asc" }] })).toEqual(["Celeste", "Hades", "Halo 2", "Halo 3", "Halo: Combat Evolved"]);
+  // Descending turns the series around, not the games within it
+  expect(titles({ sort: [{ field: "title", direction: "desc" }, { field: "release_date", direction: "asc" }] })).toEqual([
+    "Halo: Combat Evolved",
+    "Halo 2",
+    "Halo 3",
+    "Hades",
+    "Celeste",
+  ]);
+  // The ruler goes by the series' letters
+  expect(listCheckpoints(db, { kind: "letter", sort: [...byTitleThenRelease] })).toEqual([
+    { label: "C", index: 0, count: 1 },
+    { label: "H", index: 1, count: 4 },
+  ]);
+});
+
+test("a series named with an article sorts without it, like titles", () => {
+  createGame(db, { ...released("Witcher 3", 2015), series: "The Witcher", DLCs: [] });
+  createGame(db, { ...released("Xenoblade", 2010), DLCs: [] });
+  createGame(db, { ...released("Valheim", 2021), DLCs: [] });
+  expect(titles({ sort: [{ field: "title", direction: "asc" }] })).toEqual(["Valheim", "Witcher 3", "Xenoblade"]);
+});
+
+test("separate DLCs sort with their game's series", () => {
+  createGame(db, { ...released("Dark Souls III", 2016), series: "Dark Souls", DLCs: [released("Ashes of Ariandel", 2016, { release_date: new Date(Date.UTC(2016, 9, 1)) })] });
+  createGame(db, { ...released("Dark Souls", 2011), series: "Dark Souls", DLCs: [] });
+  createGame(db, { ...released("Celeste", 2018), DLCs: [released("Farewell", 2019)] });
+  createGame(db, { ...released("Bloodborne", 2015), DLCs: [] });
+
+  expect(
+    titles({ separateDlcs: true, sort: [{ field: "title", direction: "asc" }, { field: "release_date", direction: "asc" }] })
+  ).toEqual(["Bloodborne", "Celeste", "Farewell", "Dark Souls", "Dark Souls III", "Ashes of Ariandel"]);
+});
+
+test("a list narrowed to a series has only its games (and their DLCs, when separate), with search on top", () => {
+  createGame(db, { ...released("Halo 2", 2004), series: "Halo", DLCs: [details("Multiplayer Pack")] });
+  createGame(db, { ...released("Halo 3", 2007), series: "halo", DLCs: [] });
+  createGame(db, { ...released("Halo Infinite", 2021), DLCs: [] });
+  createGame(db, { ...released("Celeste", 2018), DLCs: [] });
+
+  expect(titles({ series: "HALO" })).toEqual(["Halo 2", "Halo 3"]);
+  expect(listGames(db, { ...firstPage, series: "Halo" }).total).toBe(2);
+  expect(titles({ series: "Halo", separateDlcs: true })).toEqual(["Halo 2", "Halo 3", "Multiplayer Pack"]);
+  expect(titles({ series: "Halo", search: "3" })).toEqual(["Halo 3"]);
+  expect(titles({ series: "Nothing" })).toEqual([]);
+  expect(listCheckpoints(db, { kind: "letter", series: "Halo", sort: [{ field: "title", direction: "asc" }] })).toEqual([
+    { label: "H", index: 0, count: 2 },
+  ]);
+  // The series name is searchable too
+  expect(titles({ search: "halo", sort: [{ field: "release_date", direction: "asc" }] })).toEqual(["Halo 2", "Halo 3", "Halo Infinite"]);
+});
+
+test("series names are normalized, and DLCs never have one", () => {
+  expect(detailsOf({ ...details("Halo"), series: "  Halo   Saga " }).series).toBe("Halo Saga");
+  expect(detailsOf({ ...details("Halo"), series: "   " }).series).toBeNull();
+  // Details from somewhere that doesn't know about series
+  expect(detailsOf({ ...details("Halo"), series: undefined as unknown as null }).series).toBeNull();
+
+  const game = createGame(db, { ...details("Halo"), series: "Halo", DLCs: [{ ...details("Map Pack"), series: "Nope" }] });
+  expect(game.series).toBe("Halo");
+  expect(game.DLCs[0].series).toBeNull();
+  // Editing keeps the series the form carried
+  expect(updateGame(db, { ...game, comment: "edited" }).series).toBe("Halo");
+});
+
+test("creating a game can bring games without a series into its series", () => {
+  const halo = createGame(db, { ...released("Halo", 2001), DLCs: [] });
+  const odst = createGame(db, { ...released("Halo 3: ODST", 2009), series: "Halo Spin-offs", DLCs: [] });
+  const halo2 = createGame(db, { ...released("Halo 2", 2004), series: "Halo", joinSeries: [halo.id, odst.id], DLCs: [] });
+
+  expect(getGame(db, halo.id)!.series).toBe("Halo");
+  expect(getGame(db, halo2.id)!.series).toBe("Halo");
+  // Whatever is listed joins, even from another series: the suggestion only ever lists games without one
+  expect(getGame(db, odst.id)!.series).toBe("Halo");
+});
+
+test("a series change counts as an edit only for the games it actually changes", () => {
+  const halo = createGame(db, { ...details("Halo"), series: "Halo", DLCs: [] });
+  const halo2 = createGame(db, { ...details("Halo 2"), DLCs: [details("Map Pack")] });
+  const synced = new Date(0);
+  db.update(schema.gameMetadata).set({ dirty: false, updated_at: synced }).run();
+
+  const changed = db.transaction((tx) => setSeriesOf(tx, [halo.id, halo2.id, halo2.DLCs[0].id], "Halo", new Date()));
+  expect(changed).toEqual([halo2.id]);
+  expect(metadataOf(db, halo.id)).toMatchObject({ dirty: false, updated_at: synced });
+  expect(metadataOf(db, halo2.id).dirty).toBe(true);
+  // DLCs are left alone
+  expect(metadataOf(db, halo2.DLCs[0].id).dirty).toBe(false);
+});
+
+test("series screen: lists series with their first games, finds them by name or game, and edits them", () => {
+  const ids = ["Halo 3", "Halo", "Halo 2", "Halo 4", "Halo 5"].map(
+    (title, index) => createGame(db, { ...released(title, [2007, 2001, 2004, 2012, 2015][index]), series: "Halo", DLCs: [] }).id
+  );
+  createGame(db, { ...released("Witcher 3", 2015), series: "The Witcher", DLCs: [] });
+  createGame(db, { ...released("Celeste", 2018), DLCs: [] });
+
+  expect(listSeries(db).map((series) => [series.name, series.count])).toEqual([
+    ["Halo", 5],
+    ["The Witcher", 1],
+  ]);
+  expect(listSeries(db)[0].games.map((game) => game.title)).toEqual(["Halo", "Halo 2", "Halo 3", "Halo 4", "Halo 5"]);
+  expect(listSeries(db, "witcher").map((series) => series.name)).toEqual(["The Witcher"]);
+  expect(listSeries(db, "halo 5").map((series) => series.name)).toEqual(["Halo"]);
+  expect(getSeries(db, "HALO")!.members.map((member) => member.title)).toEqual(["Halo", "Halo 2", "Halo 3", "Halo 4", "Halo 5"]);
+  expect(getSeries(db, "Nothing")).toBeNull();
+
+  // Renaming onto another series' name is refused rather than merging them
+  expect(() => saveSeries(db, { oldName: "Halo", name: "the witcher", memberIds: ids })).toThrow(/already/);
+  // Changing only the case is a rename of the same series
+  expect(saveSeries(db, { oldName: "Halo", name: "HALO", memberIds: ids })).toBe("HALO");
+  // Leaving games out takes them out of it
+  saveSeries(db, { oldName: "HALO", name: "Halo", memberIds: ids.slice(0, 2) });
+  expect(getSeries(db, "Halo")!.members).toHaveLength(2);
+  expect(getGame(db, ids[2])!.series).toBeNull();
+
+  deleteSeries(db, "Halo");
+  expect(listSeries(db).map((series) => series.name)).toEqual(["The Witcher"]);
+  assignSeries(db, [ids[0]], "Halo");
+  expect(getSeries(db, "Halo")!.members).toHaveLength(1);
+});
+
+test("suggests a series for a new title, and detects series across the collection", () => {
+  const halo = createGame(db, { ...released("Halo", 2001), DLCs: [] });
+  const halo2 = createGame(db, { ...released("Halo 2", 2004), DLCs: [] });
+  createGame(db, { ...released("Celeste", 2018), DLCs: [] });
+
+  expect(suggestForTitle(db, "Halo 3")).toMatchObject({ kind: "auto", candidate: { name: "Halo" } });
+  expect(suggestForTitle(db, "Hollow Knight")).toEqual({ kind: "none" });
+  expect(suggestForGame(db, halo2.id)).toMatchObject({ title: "Halo 2", suggestion: { kind: "auto" } });
+
+  expect(detectAll(db)).toEqual({ assigned: 2, unclear: [] });
+  expect(getGame(db, halo.id)!.series).toBe("Halo");
+  // Games already in a series have nothing to suggest
+  expect(suggestForGame(db, halo2.id)).toBeNull();
+  // Nothing left to do
+  expect(detectAll(db)).toEqual({ assigned: 0, unclear: [] });
 });

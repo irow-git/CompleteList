@@ -13,6 +13,10 @@ export interface RemoteMetadata {
   serverUpdatedAt: number;
 }
 
+// A game's details as stored in the cloud. series is missing on games uploaded by a version of the app from before
+// series existed, which is different from null (no series): the local series is kept then
+export type RemoteDetails = Omit<GameDetails, "series"> & { series?: string | null };
+
 // One local game or DLC to upload. Tombstones (deletedAt set) carry no details
 export interface PushRecord {
   id: string;
@@ -37,7 +41,7 @@ export interface RemoteStore {
   // Metadata stored after the checkpoint (server time, ms), oldest first
   changedMetadataSince(checkpoint: number): Promise<RemoteMetadata[]>;
   // Details by id; ids that have none (deleted meanwhile) are missing from the result
-  fetchDetails(ids: string[]): Promise<Map<string, GameDetails>>;
+  fetchDetails(ids: string[]): Promise<Map<string, RemoteDetails>>;
   push(records: PushRecord[]): Promise<void>;
   // Cover history entries stored after the checkpoint (server time, ms), oldest first
   changedCoversSince(checkpoint: number): Promise<(RemoteCover & { serverUpdatedAt: number })[]>;

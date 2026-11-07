@@ -9,6 +9,7 @@ import { ImagePicker } from "./ImagePicker";
 import { ScoreInput } from "./ScoreInput";
 import { HoursInput } from "./HoursInput";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { GameDetails, GameUpdate } from "../interfaces";
 
 // The form edits exactly what gets stored, so submitted values can go straight to the database
@@ -33,6 +34,9 @@ export const emptyGameFormValues: GameFormValues = {
   cover_image: null,
   score: null,
   hours: null,
+  // Not edited here: a new game's is suggested when it's saved, and the series screens change it after that. The form
+  // carries it through unchanged, so saving a game keeps its series
+  series: null,
 };
 
 const checkboxFields = [
@@ -70,12 +74,24 @@ export const GameForm: React.FC<{ prefix?: `DLCs.${number}` }> = ({ prefix }) =>
 
   // Whose cover this is: the game's id, or the DLC's
   const owner = useWatch({ control, name: (prefix ? `${prefix}.id` : "id") as "id" }) ?? "";
+  const series = useWatch({ control, name: "series" });
   const name = <F extends keyof GameFormValues>(field: F) => (prefix ? `${prefix}.${field}` : field) as FieldPath<AddGameFormValues> & F;
   const id = (field: keyof GameFormValues) => (prefix ? `${prefix.replace(".", "_")}_${field}` : field);
   const error = (field: keyof GameFormValues): string | undefined => (get(errors, name(field)) as FieldError | undefined)?.message;
 
   return (
     <div className="grid w-full grid-cols-1 gap-6 pr-6 min-[1200px]:grid-cols-2">
+      {!prefix && series && (
+        <FormItem label="Series" className="min-[1200px]:col-span-2">
+          <p className="flex items-center gap-3 text-lg">
+            <span>{series}</span>
+            <Link to={`/series/edit/${encodeURIComponent(series)}`} className="text-sm text-ink underline hover:text-black">
+              Edit series
+            </Link>
+          </p>
+        </FormItem>
+      )}
+
       <FormItem label="Title" htmlFor={id("title")} required error={error("title")}>
         <Input
           id={id("title")}

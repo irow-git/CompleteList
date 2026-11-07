@@ -4,6 +4,7 @@ import path from "node:path";
 import { Db, openDatabase } from "./db";
 import { createGame, getGame, listCheckpoints, listGames, removeCover, removeGame, updateGame } from "./db/games";
 import { coverFilesToKeep, listCovers } from "./db/covers";
+import { assignSeries, deleteSeries, detectAll, getSeries, listSeries, saveSeries, suggestForGame, suggestForTitle } from "./db/series";
 import { createSyncService } from "./sync";
 import { clearFirebaseSettings, getFirebaseSettings, saveFirebaseSettings } from "./sync/settings";
 import { handleImageRequests, registerImageScheme } from "./images/protocol";
@@ -72,6 +73,15 @@ function registerIpcHandlers(db: Db) {
   ipcMain.handle("games:create", (_event, game) => createGame(db, game));
   ipcMain.handle("games:update", (_event, game) => updateGame(db, game));
   ipcMain.handle("games:remove", (_event, id) => removeGame(db, id));
+
+  ipcMain.handle("series:list", (_event, search) => listSeries(db, search));
+  ipcMain.handle("series:get", (_event, name) => getSeries(db, name));
+  ipcMain.handle("series:suggest", (_event, title, release) => suggestForTitle(db, title, release));
+  ipcMain.handle("series:suggestFor", (_event, id) => suggestForGame(db, id));
+  ipcMain.handle("series:detect", () => detectAll(db));
+  ipcMain.handle("series:assign", (_event, ids, name) => assignSeries(db, ids, name));
+  ipcMain.handle("series:save", (_event, series) => saveSeries(db, series));
+  ipcMain.handle("series:remove", (_event, name) => deleteSeries(db, name));
 
   ipcMain.handle("images:save", (_event, owner, cover) => saveImage(imagesDir(), owner, cover));
   ipcMain.handle("covers:list", (_event, gameId) => listCovers(db, gameId));

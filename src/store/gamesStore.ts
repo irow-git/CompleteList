@@ -7,6 +7,12 @@ const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_KEY = "page-size";
 const SEPARATE_DLCS_KEY = "separate-dlcs";
 
+// What every launch starts with: by series (the title sort), then each series by release. Not remembered on purpose
+export const DEFAULT_SORT: GameSort[] = [
+  { field: "title", direction: "asc" },
+  { field: "release_date", direction: "asc" },
+];
+
 // The page size is a per-computer preference, so it lives in localStorage rather than the database
 const savedPageSize = () => {
   try {
@@ -41,9 +47,11 @@ interface GamesState {
   cardScroll: number;
   pageSize: number;
   total: number; // entries across all pages (matching ones, while searching)
-  // Applied in order; empty means the default order (title, or relevance while searching)
+  // Applied in order; empty means plain title order (or relevance while searching). Starts as DEFAULT_SORT
   sort: GameSort[];
   search: string;
+  // Only this series' games (the series screen's cards lead here), shown as a tag in the search box; null for all
+  seriesFilter: string | null;
   // Both views list DLCs as entries of their own, among the games, instead of inside their game. Remembered on this
   // computer, like the page size
   separateDlcs: boolean;
@@ -68,6 +76,10 @@ interface GamesState {
   // Both go back to the first page, since the old page number means nothing in the new order
   setSort(sort: GameSort[]): Promise<void>;
   setSearch(search: string): Promise<void>;
+  setSeriesFilter(series: string | null): Promise<void>;
+  // Narrows the list to a series and clears the search, without loading: for opening a view, which then loads
+  // (the series screen's cards lead to the card view)
+  showSeries(series: string): void;
   setSeparateDlcs(separateDlcs: boolean): Promise<void>;
   reload(): Promise<void>;
   add(game: NewGame): Promise<IGame>;
@@ -87,8 +99,9 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   cardScroll: 0,
   pageSize: savedPageSize(),
   total: 0,
-  sort: [],
+  sort: DEFAULT_SORT,
   search: "",
+  seriesFilter: null,
   separateDlcs: savedSeparateDlcs(),
   counts: { games: 0, dlcs: 0 },
   status: "idle",
@@ -97,15 +110,15 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   loadPage: async (page) => {
     page = Math.max(0, Math.floor(page) || 0);
     const request = ++latestRequest;
-    const { pageSize, sort, search, separateDlcs } = get();
+    const { pageSize, sort, search, separateDlcs, seriesFilter } = get();
     set({ status: "loading", error: undefined });
     try {
-      let result = await window.api.games.list({ page, pageSize, sort, search, separateDlcs });
+      let result = await window.api.games.list({ page, pageSize, sort, search, separateDlcs, series: seriesFilter ?? undefined });
       // After deletions the requested page can be past the end; fall back to the last one
       const lastPage = Math.max(0, Math.ceil(result.total / pageSize) - 1);
       if (page > lastPage) {
         page = lastPage;
-        result = await window.api.games.list({ page, pageSize, sort, search, separateDlcs });
+        result = await window.api.games.list({ page, pageSize, sort, search, separateDlcs, series: seriesFilter ?? undefined });
       }
       if (request !== latestRequest) return;
       set({ games: result.games, total: result.total, counts: result.counts, page, tablePage: page, infinite: false, status: "ready" });
@@ -117,10 +130,10 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
 
   loadFirst: async () => {
     const request = ++latestRequest;
-    const { pageSize, sort, search, separateDlcs } = get();
+    const { pageSize, sort, search, separateDlcs, seriesFilter } = get();
     set({ status: "loading", error: undefined });
     try {
-      const result = await window.api.games.list({ page: 0, pageSize, sort, search, separateDlcs });
+      const result = await window.api.games.list({ page: 0, pageSize, sort, search, separateDlcs, series: seriesFilter ?? undefined });
       if (request !== latestRequest) return;
       set({
         games: result.games,
@@ -139,12 +152,12 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   },
 
   loadMore: async () => {
-    const { infinite, status, games, total, page, pageSize, sort, search, separateDlcs } = get();
+    const { infinite, status, games, total, page, pageSize, sort, search, separateDlcs, seriesFilter } = get();
     if (!infinite || status === "loading" || games.length >= total) return;
     const request = ++latestRequest;
     set({ status: "loading", error: undefined });
     try {
-      const result = await window.api.games.list({ page: page + 1, pageSize, sort, search, separateDlcs });
+      const result = await window.api.games.list({ page: page + 1, pageSize, sort, search, separateDlcs, series: seriesFilter ?? undefined });
       if (request !== latestRequest) return;
       set({
         games: [...get().games, ...result.games],
@@ -161,12 +174,12 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   },
 
   restoreCards: async () => {
-    const { infinite, cardPage, pageSize, sort, search, separateDlcs } = get();
+    const { infinite, cardPage, pageSize, sort, search, separateDlcs, seriesFilter } = get();
     if (infinite) return;
     const request = ++latestRequest;
     set({ status: "loading", error: undefined });
     try {
-      const result = await window.api.games.list({ page: 0, pageSize: (cardPage + 1) * pageSize, sort, search, separateDlcs });
+      const result = await window.api.games.list({ page: 0, pageSize: (cardPage + 1) * pageSize, sort, search, separateDlcs, series: seriesFilter ?? undefined });
       if (request !== latestRequest) return;
       // Fewer games than before (e.g. some were deleted) means fewer pages
       const page = Math.max(0, Math.ceil(result.games.length / pageSize) - 1);
@@ -180,13 +193,13 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   setCardScroll: (cardScroll) => set({ cardScroll }),
 
   loadUntil: async (index) => {
-    const { infinite, games, total, pageSize, sort, search, separateDlcs } = get();
+    const { infinite, games, total, pageSize, sort, search, separateDlcs, seriesFilter } = get();
     if (!infinite || index < games.length || games.length >= total) return;
     const pages = Math.ceil((index + 1) / pageSize);
     const request = ++latestRequest;
     set({ status: "loading", error: undefined });
     try {
-      const result = await window.api.games.list({ page: 0, pageSize: pages * pageSize, sort, search, separateDlcs });
+      const result = await window.api.games.list({ page: 0, pageSize: pages * pageSize, sort, search, separateDlcs, series: seriesFilter ?? undefined });
       if (request !== latestRequest) return;
       set({ games: result.games, total: result.total, counts: result.counts, page: pages - 1, cardPage: pages - 1, status: "ready" });
     } catch (error) {
@@ -220,6 +233,14 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
     return get().infinite ? get().loadFirst() : get().loadPage(0);
   },
 
+  setSeriesFilter: (seriesFilter) => {
+    set({ seriesFilter, tablePage: 0, cardPage: 0, cardScroll: 0 });
+    return get().infinite ? get().loadFirst() : get().loadPage(0);
+  },
+
+  showSeries: (seriesFilter) =>
+    set({ seriesFilter, search: "", tablePage: 0, cardPage: 0, cardScroll: 0, infinite: false }),
+
   setSeparateDlcs: (separateDlcs) => {
     try {
       localStorage.setItem(SEPARATE_DLCS_KEY, String(separateDlcs));
@@ -234,12 +255,12 @@ export const useGamesStore = create<GamesState>()((set, get) => ({
   // adds/removes shift the total. In infinite mode that's every page scrolled through so far, in one request, so the
   // view keeps its scroll position
   reload: async () => {
-    const { infinite, page, pageSize, sort, search, separateDlcs } = get();
+    const { infinite, page, pageSize, sort, search, separateDlcs, seriesFilter } = get();
     if (!infinite) return get().loadPage(page);
 
     const request = ++latestRequest;
     try {
-      const result = await window.api.games.list({ page: 0, pageSize: (page + 1) * pageSize, sort, search, separateDlcs });
+      const result = await window.api.games.list({ page: 0, pageSize: (page + 1) * pageSize, sort, search, separateDlcs, series: seriesFilter ?? undefined });
       if (request !== latestRequest) return;
       set({ games: result.games, total: result.total, counts: result.counts, status: "ready" });
     } catch (error) {

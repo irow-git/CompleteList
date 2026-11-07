@@ -13,6 +13,10 @@
   --color-error-bg: #efd7d1;
   --color-highlight: cyan;
   --color-dirty-white: #F0F0F0;
+  /* Solid stand-ins for faded text, for icons drawn from overlapping shapes (arrows, cloud, image, reload): a
+     translucent colour paints the overlaps twice, so they show up darker */
+  --color-faded: #64625f; /* about black/55 on the sand background */
+  --color-faded-light: #c4c0c9; /* a disabled icon on white */
 
   /* Semantic tokens used by shadcn/ui components in src/components/ui */
   --color-foreground: #000000e0;

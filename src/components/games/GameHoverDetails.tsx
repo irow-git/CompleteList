@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { GameDetails, IGame } from "@/interfaces";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { formatDay } from "@/lib/dates";
@@ -9,24 +10,47 @@ import { formatHours } from "@/lib/hours";
 import { ScoreBadge } from "./ScoreBadge";
 
 // Hovering a card for a moment shows everything about the game and its DLCs. Once a panel is open, moving to another
-// card switches it almost at once. The pointer can move into the panel to scroll it (long DLC lists)
+// card switches it almost at once. The pointer can move into the panel to scroll it (long DLC lists).
+// Touchscreens have no hover: tapping (or clicking) a card shows its panel straight away, tapping elsewhere closes it.
+// Tapping or clicking twice in a row opens the game's own page, with everything the panel has and more
 const OPEN_DELAY = 500;
 const SWITCH_DELAY = 120;
 const CLOSE_DELAY = 150;
+// Two taps or clicks closer together than this, in time and distance, are a double tap. Measured from pointerup rather
+// than left to dblclick, which touchscreens don't reliably send
+const DOUBLE_TAP_MS = 350;
+const DOUBLE_TAP_PX = 24;
 
-type HoverProps = { onMouseEnter: (event: React.MouseEvent<HTMLElement>) => void; onMouseLeave: () => void };
+type HoverProps = {
+  onPointerEnter: (event: React.PointerEvent<HTMLElement>) => void;
+  onPointerLeave: (event: React.PointerEvent<HTMLElement>) => void;
+  onPointerUp: (event: React.PointerEvent<HTMLElement>) => void;
+  onClick: (event: React.MouseEvent<HTMLElement>) => void;
+};
 
-const HoverContext = createContext<(game: IGame) => HoverProps>(() => ({ onMouseEnter: () => {}, onMouseLeave: () => {} }));
+const noop = () => {};
+const HoverContext = createContext<(game: IGame) => HoverProps>(() => ({
+  onPointerEnter: noop,
+  onPointerLeave: noop,
+  onPointerUp: noop,
+  onClick: noop,
+}));
 
 // Spread onto a card: {...useGameHover()(game)}. The panel sits next to the element marked data-hover-anchor inside it,
 // or next to the element itself
 export const useGameHover = () => useContext(HoverContext);
 
+// The page a game's details open on: a DLC listed on its own opens its game's, scrolled to it
+export const gamePagePath = (game: IGame) => (game.parent ? `/game/${game.parent.id}?dlc=${game.id}` : `/game/${game.id}`);
+
+// Clicks on the card's own buttons and links (edit, delete) aren't for the panel
+const onControl = (target: EventTarget) => target instanceof Element && !!target.closest("button, a, [role='button']");
+
 const Badge: React.FC<{ className?: string; children: React.ReactNode }> = ({ className, children }) => (
   <span className={cn("bg-white px-1.5 font-pixel text-[10px] leading-5 text-ink", className)}>{children}</span>
 );
 
-const Facts: React.FC<{ details: GameDetails }> = ({ details }) => (
+export const Facts: React.FC<{ details: GameDetails }> = ({ details }) => (
   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
     {details.completion && (
       <>
@@ -55,7 +79,7 @@ const Facts: React.FC<{ details: GameDetails }> = ({ details }) => (
   </dl>
 );
 
-const Labels: React.FC<{ details: GameDetails }> = ({ details }) => {
+export const Labels: React.FC<{ details: GameDetails }> = ({ details }) => {
   const labels = [details.service && "Service", details.free_to_play && "Free to play", !details.service && details.original_copy && "Original", ...details.tags];
   return labels.some(Boolean) ? (
     <div className="flex flex-wrap gap-1">
@@ -119,7 +143,9 @@ const GameDetailsPanel: React.FC<{ game: IGame }> = ({ game }) => (
 );
 
 export const GameHoverProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [shown, setShown] = useState<{ game: IGame; anchor: HTMLElement } | null>(null);
+  const navigate = useNavigate();
+  // anchor: what the panel sits next to; card: the element the props are on (taps there don't count as outside)
+  const [shown, setShown] = useState<{ game: IGame; anchor: HTMLElement; card: HTMLElement } | null>(null);
   const shownRef = useRef(shown);
   shownRef.current = shown;
   const openTimer = useRef<number>();
@@ -136,20 +162,46 @@ export const GameHoverProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     closeTimer.current = window.setTimeout(() => setShown(null), CLOSE_DELAY);
   };
 
+  const lastUp = useRef<{ id: string; time: number; x: number; y: number } | null>(null);
+
   const bind = useCallback(
-    (game: IGame): HoverProps => ({
-      onMouseEnter: (event) => {
-        const target = event.currentTarget;
-        const element = target.querySelector<HTMLElement>("[data-hover-anchor]") ?? target;
-        cancelTimers();
-        openTimer.current = window.setTimeout(() => setShown({ game, anchor: element }), shownRef.current ? SWITCH_DELAY : OPEN_DELAY);
-      },
-      onMouseLeave: () => {
-        window.clearTimeout(openTimer.current);
-        scheduleClose();
-      },
-    }),
-    []
+    (game: IGame): HoverProps => {
+      const target = (card: HTMLElement) => ({ game, card, anchor: card.querySelector<HTMLElement>("[data-hover-anchor]") ?? card });
+      return {
+        // Touch "hover" only comes with a tap, which the click below handles
+        onPointerEnter: (event) => {
+          if (event.pointerType === "touch") return;
+          const card = event.currentTarget;
+          cancelTimers();
+          openTimer.current = window.setTimeout(() => setShown(target(card)), shownRef.current ? SWITCH_DELAY : OPEN_DELAY);
+        },
+        onPointerLeave: (event) => {
+          if (event.pointerType === "touch") return;
+          window.clearTimeout(openTimer.current);
+          scheduleClose();
+        },
+        onClick: (event) => {
+          if (onControl(event.target)) return;
+          cancelTimers();
+          if (shownRef.current?.game.id !== game.id) setShown(target(event.currentTarget));
+        },
+        onPointerUp: (event) => {
+          if (onControl(event.target) || event.button !== 0) return;
+          const now = performance.now();
+          const last = lastUp.current;
+          const isDouble =
+            last?.id === game.id &&
+            now - last.time < DOUBLE_TAP_MS &&
+            Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_TAP_PX;
+          lastUp.current = isDouble ? null : { id: game.id, time: now, x: event.clientX, y: event.clientY };
+          if (!isDouble) return;
+          cancelTimers();
+          setShown(null);
+          navigate(gamePagePath(game));
+        },
+      };
+    },
+    [navigate]
   );
 
   // The panel doesn't follow its anchor when the list scrolls, so it closes instead (scrolling the panel itself is fine)
@@ -183,10 +235,14 @@ export const GameHoverProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             sideOffset={12}
             collisionPadding={16}
             onOpenAutoFocus={(event) => event.preventDefault()}
+            // Tapping the card it's open for keeps it (that may be the first half of a double tap); anywhere else closes it
+            onPointerDownOutside={(event) => {
+              if (event.target instanceof Node && shownRef.current?.card.contains(event.target)) event.preventDefault();
+            }}
             onCloseAutoFocus={(event) => event.preventDefault()}
             // Moving from the card into the panel keeps it open
-            onMouseEnter={() => window.clearTimeout(closeTimer.current)}
-            onMouseLeave={scheduleClose}
+            onPointerEnter={() => window.clearTimeout(closeTimer.current)}
+            onPointerLeave={(event) => event.pointerType !== "touch" && scheduleClose()}
             className="option-clip max-h-(--radix-popover-content-available-height) w-[380px] overflow-y-auto overscroll-contain rounded-none border-0 border-t-[5px] border-ink bg-sand-light p-4 text-left font-chava text-sm text-black/88 shadow-[0_6px_16px_0_rgba(0,0,0,0.08),0_9px_28px_8px_rgba(0,0,0,0.05)] duration-200"
           >
             <GameDetailsPanel game={shown.game} />

@@ -173,7 +173,8 @@ const HeaderContent: React.FC<{ header: Header<IGame, unknown>; sortCount: numbe
       className="cursor-pointer font-semibold uppercase hover:text-ink"
     >
       {words.length > 0 && `${words.join(" ")} `}
-      <span className="inline-flex items-center gap-1 whitespace-nowrap align-middle">
+      {/* On the text's baseline, not align-middle: on one line with the words before it, that would sit lower */}
+      <span className="inline-flex items-center gap-1 whitespace-nowrap align-baseline">
         {lastWord}
         {/* With several sorts, each one's place sits on its arrow's corner, so it takes no room of its own */}
         <span className="relative shrink-0">

@@ -41,14 +41,14 @@ async function pull(db: Db, remote: RemoteStore): Promise<number> {
   const changed = await remote.changedMetadataSince(checkpoint);
   if (changed.length === 0) return 0;
 
-  const local = new Map(
-    db
-      .select({ id: gameMetadata.game_id, updatedAt: gameMetadata.updated_at })
-      .from(gameMetadata)
-      .where(inArray(gameMetadata.game_id, changed.map((meta) => meta.id)))
-      .all()
-      .map((row) => [row.id, row.updatedAt.getTime()])
-  );
+  const localRows = db
+    .select({ id: gameMetadata.game_id, updatedAt: gameMetadata.updated_at, series: games.series })
+    .from(gameMetadata)
+    .innerJoin(games, eq(games.id, gameMetadata.game_id))
+    .where(inArray(gameMetadata.game_id, changed.map((meta) => meta.id)))
+    .all();
+  const local = new Map(localRows.map((row) => [row.id, row.updatedAt.getTime()]));
+  const localSeries = new Map(localRows.map((row) => [row.id, row.series]));
   const newer = changed.filter((meta) => meta.updatedAt.getTime() > (local.get(meta.id) ?? -Infinity));
   const details = await remote.fetchDetails(newer.filter((meta) => !meta.deletedAt).map((meta) => meta.id));
 
@@ -72,9 +72,17 @@ async function pull(db: Db, remote: RemoteStore): Promise<number> {
       // A DLC added on one device to a game another device deleted (and has since purged) has nowhere to go
       if (meta.parentId && !tx.select({ id: games.id }).from(games).where(eq(games.id, meta.parentId)).get()) continue;
 
-      const row = { ...detailsOf(game), parent_id: meta.parentId };
-      tx.insert(games).values({ id: meta.id, ...row }).onConflictDoUpdate({ target: games.id, set: row }).run();
-      const metadata = { created_at: meta.createdAt, updated_at: meta.updatedAt, deleted_at: null, dirty: false };
+      const row = { ...detailsOf({ ...game, series: meta.parentId ? null : (game.series ?? null) }), parent_id: meta.parentId };
+      // Uploaded by a version of the app without series: whatever series this computer has stays. If it has one, the
+      // game is uploaded again, so the cloud (and every other computer) gets it too
+      const keepsSeries = game.series === undefined && !meta.parentId;
+      const { series: _series, ...withoutSeries } = row;
+      tx.insert(games)
+        .values({ id: meta.id, ...row })
+        .onConflictDoUpdate({ target: games.id, set: keepsSeries ? withoutSeries : row })
+        .run();
+      const reupload = keepsSeries && !!localSeries.get(meta.id);
+      const metadata = { created_at: meta.createdAt, updated_at: meta.updatedAt, deleted_at: null, dirty: reupload };
       tx.insert(gameMetadata)
         .values({ game_id: meta.id, ...metadata })
         .onConflictDoUpdate({ target: gameMetadata.game_id, set: metadata })
