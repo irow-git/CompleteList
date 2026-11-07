@@ -22,7 +22,7 @@ const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_PX = 24;
 
 type HoverProps = {
-  onPointerEnter: (event: React.PointerEvent<HTMLElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLElement>) => void;
   onPointerLeave: (event: React.PointerEvent<HTMLElement>) => void;
   onPointerUp: (event: React.PointerEvent<HTMLElement>) => void;
   onClick: (event: React.MouseEvent<HTMLElement>) => void;
@@ -30,7 +30,7 @@ type HoverProps = {
 
 const noop = () => {};
 const HoverContext = createContext<(game: IGame) => HoverProps>(() => ({
-  onPointerEnter: noop,
+  onPointerMove: noop,
   onPointerLeave: noop,
   onPointerUp: noop,
   onClick: noop,
@@ -150,12 +150,28 @@ export const GameHoverProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   shownRef.current = shown;
   const openTimer = useRef<number>();
   const closeTimer = useRef<number>();
-  // Radix positions the panel against whatever this returns, i.e. the hovered element's current box
-  const anchor = useRef({ getBoundingClientRect: () => shownRef.current?.anchor.getBoundingClientRect() ?? new DOMRect() });
+  // Radix positions the panel against whatever this returns, i.e. the hovered element's current box. A card that's no
+  // longer on the page (the list reloaded under it) has no box: rather than jump to the window's corner, the panel
+  // stays where it was and closes
+  const lastBox = useRef(new DOMRect());
+  const anchor = useRef({
+    getBoundingClientRect: () => {
+      const element = shownRef.current?.anchor;
+      if (element && !element.isConnected) {
+        queueMicrotask(() => setShown((current) => (current?.anchor === element ? null : current)));
+        return lastBox.current;
+      }
+      if (element) lastBox.current = element.getBoundingClientRect();
+      return lastBox.current;
+    },
+  });
+  // The game whose panel is about to open
+  const pending = useRef<string | null>(null);
 
   const cancelTimers = () => {
     window.clearTimeout(openTimer.current);
     window.clearTimeout(closeTimer.current);
+    pending.current = null;
   };
   const scheduleClose = () => {
     window.clearTimeout(closeTimer.current);
@@ -168,16 +184,32 @@ export const GameHoverProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     (game: IGame): HoverProps => {
       const target = (card: HTMLElement) => ({ game, card, anchor: card.querySelector<HTMLElement>("[data-hover-anchor]") ?? card });
       return {
-        // Touch "hover" only comes with a tap, which the click below handles
-        onPointerEnter: (event) => {
-          if (event.pointerType === "touch") return;
+        // Opens once the pointer actually moves over the card. Not on entering it: after a page change the browser
+        // reports entering whatever card ends up under a pointer that hasn't moved (opening a series' games lands one
+        // right under it), and those reports come with no movement. Touch "hover" only comes with a tap, which the
+        // click below handles
+        onPointerMove: (event) => {
+          if (event.pointerType === "touch" || (event.movementX === 0 && event.movementY === 0)) return;
+          if (pending.current === game.id || shownRef.current?.game.id === game.id) {
+            window.clearTimeout(closeTimer.current);
+            return;
+          }
           const card = event.currentTarget;
           cancelTimers();
-          openTimer.current = window.setTimeout(() => setShown(target(card)), shownRef.current ? SWITCH_DELAY : OPEN_DELAY);
+          pending.current = game.id;
+          openTimer.current = window.setTimeout(
+            () => {
+              pending.current = null;
+              // Gone meanwhile, e.g. the list reloaded
+              if (card.isConnected) setShown(target(card));
+            },
+            shownRef.current ? SWITCH_DELAY : OPEN_DELAY
+          );
         },
         onPointerLeave: (event) => {
           if (event.pointerType === "touch") return;
           window.clearTimeout(openTimer.current);
+          pending.current = null;
           scheduleClose();
         },
         onClick: (event) => {
