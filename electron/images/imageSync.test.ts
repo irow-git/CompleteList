@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { cleanFolder, createImageSync } from "./imageSync";
+import { cleanFolder, createImageSync, type Cover } from "./imageSync";
 import type { RcloneRunner } from "./rclone";
 
 // A stand-in for rclone with the behaviour the image sync relies on. Each remote is a folder under `cloud`
@@ -144,16 +144,22 @@ test("syncing uploads the covers the cloud lacks, downloads the ones this comput
 
   addImage(a.imagesDir, "a");
   fs.writeFileSync(path.join(a.imagesDir, game, `${ref("a")}.1234.tmp`), "half-written");
-  expect(await a.sync.sync({ live: [cover("a")], deleted: [] })).toEqual({ uploaded: 1, downloaded: 0, deleted: 0, missing: 0 });
+  const moved: [string, Cover[]][] = [];
+  const onFiles = (action: string, covers: Cover[]) => moved.push([action, covers]);
+  expect(await a.sync.sync({ live: [cover("a")], deleted: [] }, { onFiles })).toEqual({ uploaded: 1, downloaded: 0, deleted: 0, missing: 0 });
   expect(fs.readdirSync(path.join(cloudFolder, game))).toEqual([ref("a")]);
+  expect(moved).toEqual([["uploaded", [cover("a")]]]);
 
   // b's history has a's cover, and one that no computer has uploaded yet
-  expect(await b.sync.sync({ live: [cover("a"), cover("b")], deleted: [] })).toEqual({ uploaded: 0, downloaded: 1, deleted: 0, missing: 1 });
+  expect(await b.sync.sync({ live: [cover("a"), cover("b")], deleted: [] }, { onFiles })).toEqual({ uploaded: 0, downloaded: 1, deleted: 0, missing: 1 });
+  expect(moved.at(-1)).toEqual(["downloaded", [cover("a")]]);
   expect(fs.readFileSync(path.join(b.imagesDir, game, ref("a")), "utf8")).toBe("image a");
   expect(await b.sync.sync({ live: [cover("a")], deleted: [] })).toEqual({ uploaded: 0, downloaded: 0, deleted: 0, missing: 0 });
 
   // Deleted from the history: gone from the cloud and from both computers
-  expect(await b.sync.sync({ live: [], deleted: [cover("a")] })).toEqual({ uploaded: 0, downloaded: 0, deleted: 1, missing: 0 });
+  expect(await b.sync.sync({ live: [], deleted: [cover("a")] }, { onFiles })).toEqual({ uploaded: 0, downloaded: 0, deleted: 1, missing: 0 });
+  expect(moved.at(-1)).toEqual(["deleted", [cover("a")]]);
+  expect(moved).toHaveLength(3);
   expect(fs.existsSync(path.join(cloudFolder, game, ref("a")))).toBe(false);
   expect(fs.existsSync(path.join(b.imagesDir, game))).toBe(false);
   await a.sync.sync({ live: [], deleted: [cover("a")] });

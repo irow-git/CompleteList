@@ -11,7 +11,8 @@ import { coversForImageSync, listCovers } from "../db/covers";
 import * as schema from "../db/schema";
 import { assignSeries, deleteSeries, detectAll, saveSeries } from "../db/series";
 import { addSelectItems, listSelectItems, removeSelectItem } from "../db/selectItems";
-import { resetSync, runSync, syncStatus } from "./engine";
+import { resetSync, runSync, syncStatus, type SyncLog } from "./engine";
+import type { SyncChange } from "../../src/interfaces";
 import type { PushRecord, RemoteCover, RemoteDetails, RemoteMetadata, RemoteSelectItem, RemoteStore } from "./remote";
 
 // Stands in for Firestore. It has its own clock, unrelated to either device's, like Firestore's serverTimestamp()
@@ -122,6 +123,64 @@ test("a game created on one device reaches the other with its DLCs and dates int
   expect(copy).toEqual(game);
   expect(copy.release_date).toBeInstanceOf(Date);
   expect(syncStatus(b, true).pendingChanges).toBe(0);
+});
+
+// Runs a sync and returns what it says it changed
+const changesOf = async (db: Db) => {
+  const changes: SyncChange[] = [];
+  const log: SyncLog = { step: () => {}, change: (change) => changes.push(change) };
+  await runSync(db, remote, log);
+  return changes;
+};
+
+test("each change is reported with its side and the properties that differ", async () => {
+  const game = createGame(a, { ...details("Witcher 3"), DLCs: [details("Blood and Wine")] });
+
+  // New in the cloud: every property it has, none of the "No"s
+  const uploaded = await changesOf(a);
+  expect(uploaded.map(({ side, kind, action, title, note }) => ({ side, kind, action, title, note }))).toEqual([
+    { side: "cloud", kind: "game", action: "added", title: "Witcher 3", note: undefined },
+    { side: "cloud", kind: "dlc", action: "added", title: "Blood and Wine", note: "DLC of Witcher 3" },
+  ]);
+  expect(uploaded[0].fields).toEqual([
+    { name: "Title", from: null, to: "Witcher 3" },
+    { name: "Platform", from: null, to: "PC" },
+    { name: "Completion", from: null, to: "Main story" },
+    { name: "Release date", from: null, to: "2015-May-19" },
+    { name: "Original copy", from: null, to: "Yes" },
+  ]);
+  expect((await changesOf(b)).map(({ side, action, title }) => [side, action, title])).toEqual([
+    ["local", "added", "Witcher 3"],
+    ["local", "added", "Blood and Wine"],
+  ]);
+
+  // An edit: just what differs from the cloud's version, then from this computer's
+  setClock("2026-01-01T11:00:00Z");
+  updateGame(b, { ...getGame(b, game.id)!, title: "The Witcher 3", comment: "Played on B" });
+  const edit = [
+    { name: "Title", from: "Witcher 3", to: "The Witcher 3" },
+    { name: "Comment", from: null, to: "Played on B" },
+  ];
+  expect(await changesOf(b)).toEqual([{ side: "cloud", kind: "game", action: "changed", title: "The Witcher 3", fields: edit }]);
+  expect(await changesOf(a)).toEqual([{ side: "local", kind: "game", action: "changed", title: "The Witcher 3", fields: edit }]);
+
+  // A deletion, with the DLC's game named
+  setClock("2026-01-01T12:00:00Z");
+  removeGame(a, game.id);
+  expect((await changesOf(a)).map(({ side, action, title, note }) => [side, action, title, note])).toEqual([
+    ["cloud", "deleted", "The Witcher 3", undefined],
+    ["cloud", "deleted", "Blood and Wine", "DLC of The Witcher 3"],
+  ]);
+  expect((await changesOf(b)).map(({ side, action, title }) => [side, action, title])).toEqual([
+    ["local", "deleted", "The Witcher 3"],
+    ["local", "deleted", "Blood and Wine"],
+  ]);
+});
+
+test("dropdown options are reported too", async () => {
+  addSelectItems(a, "platform", ["Steam Deck"]);
+  expect(await changesOf(a)).toEqual([{ side: "cloud", kind: "option", action: "added", title: "Steam Deck", note: "Platform option", fields: [] }]);
+  expect(await changesOf(b)).toEqual([{ side: "local", kind: "option", action: "added", title: "Steam Deck", note: "Platform option", fields: [] }]);
 });
 
 test("edits travel both ways", async () => {

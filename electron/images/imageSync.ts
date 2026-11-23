@@ -160,7 +160,16 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
     // An aborted signal stops rclone where it is and rejects with the signal's reason
     sync: async (
       coversToSync: { live: Cover[]; deleted: Cover[] },
-      { signal, report = () => {} }: { signal?: AbortSignal; report?: (step: string) => void } = {}
+      {
+        signal,
+        report = () => {},
+        onFiles = () => {},
+      }: {
+        signal?: AbortSignal;
+        report?: (step: string) => void;
+        // The covers whose files were copied or deleted, after each batch of them is done
+        onFiles?: (action: "uploaded" | "downloaded" | "deleted", covers: Cover[]) => void;
+      } = {}
     ): Promise<ImageSyncResult> => {
       const { provider, folder } = readSettings();
       if (!provider) throw new Error("Image sync isn't connected.");
@@ -191,14 +200,21 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
       const deleted = coversToSync.deleted.filter(valid);
       const local = new Set(storedFiles(imagesDir));
 
-      const liveFiles = live.map((cover) => imageFile(cover.gameId, cover.image));
-      const toUpload = liveFiles.filter((file) => local.has(file) && !inCloud.has(file));
-      const toDownload = liveFiles.filter((file) => !local.has(file) && inCloud.has(file));
-      const toDelete = deleted.map((cover) => imageFile(cover.gameId, cover.image)).filter((file) => inCloud.has(file));
+      const withFile = (cover: Cover) => ({ cover, file: imageFile(cover.gameId, cover.image) });
+      const liveFiles = live.map(withFile);
+      const toUpload = liveFiles.filter(({ file }) => local.has(file) && !inCloud.has(file));
+      const toDownload = liveFiles.filter(({ file }) => !local.has(file) && inCloud.has(file));
+      const toDelete = deleted.map(withFile).filter(({ file }) => inCloud.has(file));
 
       // rclone reads the files to act on from a list, as paths relative to the folders it's given
-      const withList = async (files: string[], action: string, args: (list: string) => string[]) => {
-        if (files.length === 0) return;
+      const withList = async (
+        entries: { cover: Cover; file: string }[],
+        done: "uploaded" | "downloaded" | "deleted",
+        action: string,
+        args: (list: string) => string[]
+      ) => {
+        if (entries.length === 0) return;
+        const files = entries.map((entry) => entry.file);
         report(`${action} (${files.length})`);
         fs.mkdirSync(dataDir, { recursive: true });
         const list = path.join(dataDir, `files-${Date.now()}.txt`);
@@ -206,15 +222,16 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
         try {
           const result = await run(args(list));
           if (result.code !== 0) throw failure(action, result);
+          onFiles(done, entries.map((entry) => entry.cover));
         } finally {
           fs.rmSync(list, { force: true });
         }
       };
       const copyArgs = (from: string, to: string) => (list: string) => ["copy", from, to, "--files-from", list, "--no-traverse", "--ignore-existing"];
       fs.mkdirSync(imagesDir, { recursive: true });
-      await withList(toUpload, "Uploading covers", copyArgs(imagesDir, remote));
-      await withList(toDownload, "Downloading covers", copyArgs(remote, imagesDir));
-      await withList(toDelete, "Deleting covers from the cloud", (list) => ["delete", remote, "--files-from", list]);
+      await withList(toUpload, "uploaded", "Uploading covers", copyArgs(imagesDir, remote));
+      await withList(toDownload, "downloaded", "Downloading covers", copyArgs(remote, imagesDir));
+      await withList(toDelete, "deleted", "Deleting covers from the cloud", (list) => ["delete", remote, "--files-from", list]);
       // Deleted covers that came from another computer's history go from this one too
       signal?.throwIfAborted();
       for (const cover of deleted) removeImage(imagesDir, cover.gameId, cover.image);
@@ -223,7 +240,7 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
         uploaded: toUpload.length,
         downloaded: toDownload.length,
         deleted: toDelete.length,
-        missing: liveFiles.filter((file) => !local.has(file) && !inCloud.has(file)).length,
+        missing: liveFiles.filter(({ file }) => !local.has(file) && !inCloud.has(file)).length,
       };
     },
   };

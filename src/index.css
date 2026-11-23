@@ -12,6 +12,10 @@
   --color-error: #ff4d4f;
   --color-error-bg: #efd7d1;
   --color-warning: #ad6800;
+  --color-warning-bg: #f6ead2;
+  /* Sync details: added and removed values, like a diff */
+  --color-added: #237804;
+  --color-added-bg: #dfeed6;
   --color-highlight: cyan;
   --color-dirty-white: #F0F0F0;
   /* Solid stand-ins for faded text, for icons drawn from overlapping shapes (arrows, cloud, image, reload): a

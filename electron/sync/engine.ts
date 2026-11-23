@@ -1,11 +1,12 @@
 import { and, count, eq, inArray, isNotNull } from "drizzle-orm";
-import type { SyncResult, SyncStatus } from "../../src/interfaces";
+import type { SyncChange, SyncResult, SyncStatus } from "../../src/interfaces";
 import type { Db } from "../db";
 import { detailsOf } from "../db/games";
 import { covers, gameMetadata, games, selectItems, syncState } from "../db/schema";
 import { coverId, isImageRef, isOwnerId } from "../../src/lib/imageRef";
 import { isSelectList, MAX_SELECT_ITEM_LENGTH, selectItemId } from "../../src/lib/selectItems";
 import type { PushRecord, RemoteCover, RemoteSelectItem, RemoteStore } from "./remote";
+import { coverChange, gameChange, gameFields, optionChange, titlesOf } from "./changes";
 
 type SyncKey = "checkpoint" | "coverCheckpoint" | "selectItemCheckpoint" | "lastSyncedAt";
 
@@ -13,6 +14,14 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 // Called with a short sentence before each step of a sync, for showing what it's doing
 export type ReportStep = (step: string) => void;
+
+// What a sync tells as it goes: each step as it starts, and each change once it's been made
+export interface SyncLog {
+  step: ReportStep;
+  change(change: SyncChange): void;
+}
+
+const quiet: SyncLog = { step: () => {}, change: () => {} };
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
@@ -48,9 +57,9 @@ export function syncStatus(db: Db, configured: boolean): SyncStatus {
 }
 
 // Applies remote changes that are newer than the local copy (last write wins, by updated_at) and returns how many
-async function pull(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
+async function pull(db: Db, remote: RemoteStore, log: SyncLog): Promise<number> {
   const checkpoint = Number(readState(db, "checkpoint") ?? 0);
-  report("Checking the cloud for changed games");
+  log.step("Checking the cloud for changed games");
   const changed = await remote.changedMetadataSince(checkpoint);
   if (changed.length === 0) return 0;
 
@@ -63,14 +72,30 @@ async function pull(db: Db, remote: RemoteStore, report: ReportStep): Promise<nu
   const local = new Map(localRows.map((row) => [row.id, row.updatedAt.getTime()]));
   const localSeries = new Map(localRows.map((row) => [row.id, row.series]));
   const newer = changed.filter((meta) => meta.updatedAt.getTime() > (local.get(meta.id) ?? -Infinity));
-  if (newer.length > 0) report(`Downloading ${plural(newer.length, "changed game")}`);
+  if (newer.length > 0) log.step(`Downloading ${plural(newer.length, "changed game")}`);
   const details = await remote.fetchDetails(newer.filter((meta) => !meta.deletedAt).map((meta) => meta.id));
+
+  // The local versions, to tell what each download changes (a deleted one counts as not there)
+  const before = new Map(
+    db
+      .select({ game: games, deletedAt: gameMetadata.deleted_at })
+      .from(games)
+      .innerJoin(gameMetadata, eq(gameMetadata.game_id, games.id))
+      .where(inArray(games.id, newer.map((meta) => meta.id)))
+      .all()
+      .map(({ game, deletedAt }) => [game.id, { game: detailsOf(game), deletedAt }])
+  );
+  const parentTitles = titlesOf(db, newer.flatMap((meta) => (meta.parentId ? [meta.parentId] : [])));
+  for (const [id, game] of details) parentTitles.set(id, game.title); // a DLC's game may be arriving in this sync
 
   // Base games first, so a DLC's parent is already there when the DLC is written
   const ordered = [...newer].sort((a, b) => Number(a.parentId !== null) - Number(b.parentId !== null));
+  // Told once the transaction has committed
+  const made: SyncChange[] = [];
   let applied = 0;
   db.transaction((tx) => {
     for (const meta of ordered) {
+      const parentTitle = meta.parentId ? (parentTitles.get(meta.parentId) ?? null) : undefined;
       if (meta.deletedAt) {
         if (!local.has(meta.id)) continue; // never had it, nothing to delete
         tx.update(gameMetadata)
@@ -78,6 +103,8 @@ async function pull(db: Db, remote: RemoteStore, report: ReportStep): Promise<nu
           .where(eq(gameMetadata.game_id, meta.id))
           .run();
         applied++;
+        const previous = before.get(meta.id);
+        if (previous && !previous.deletedAt) made.push(gameChange("local", "deleted", previous.game.title, parentTitle));
         continue;
       }
 
@@ -102,6 +129,9 @@ async function pull(db: Db, remote: RemoteStore, report: ReportStep): Promise<nu
         .onConflictDoUpdate({ target: gameMetadata.game_id, set: metadata })
         .run();
       applied++;
+      const previous = before.get(meta.id);
+      const existed = previous && !previous.deletedAt;
+      made.push(gameChange("local", existed ? "changed" : "added", row.title, parentTitle, gameFields(existed ? previous.game : null, row, keepsSeries)));
     }
     // Only what was pulled moves the checkpoint. A push can't learn the server timestamps it got, so this device's
     // own uploads come back once on the next sync (skipped above as not newer) and move it then. Jumping to the push
@@ -109,11 +139,12 @@ async function pull(db: Db, remote: RemoteStore, report: ReportStep): Promise<nu
     const newCheckpoint = changed.reduce((latest, meta) => Math.max(latest, meta.serverUpdatedAt), checkpoint);
     writeState(tx, "checkpoint", String(newCheckpoint));
   });
+  made.forEach(log.change);
   return applied;
 }
 
 // Uploads every local change (tombstones included) and returns how many
-async function push(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
+async function push(db: Db, remote: RemoteStore, log: SyncLog): Promise<number> {
   const records: PushRecord[] = db
     .select({ game: games, meta: gameMetadata })
     .from(games)
@@ -130,8 +161,23 @@ async function push(db: Db, remote: RemoteStore, report: ReportStep): Promise<nu
     }));
   if (records.length === 0) return 0;
 
-  report(`Uploading ${plural(records.length, "game change")}`);
+  // The cloud's versions, to tell what each upload changes there
+  log.step(`Comparing ${plural(records.length, "changed game")} with the cloud`);
+  const inCloud = await remote.fetchDetails(records.filter((record) => record.details).map((record) => record.id));
+  log.step(`Uploading ${plural(records.length, "game change")}`);
   await remote.push(records);
+
+  const titles = titlesOf(db, records.flatMap((record) => [record.id, ...(record.parentId ? [record.parentId] : [])]));
+  for (const record of records) {
+    const parentTitle = record.parentId ? (titles.get(record.parentId) ?? null) : undefined;
+    if (!record.details) {
+      log.change(gameChange("cloud", "deleted", titles.get(record.id) ?? "", parentTitle));
+      continue;
+    }
+    const previous = inCloud.get(record.id);
+    const fields = gameFields(previous ? { ...previous, series: previous.series ?? null } : null, record.details);
+    log.change(gameChange("cloud", previous ? "changed" : "added", record.details.title, parentTitle, fields));
+  }
 
   // Only rows still exactly as uploaded are clean: anything edited while the upload ran stays dirty for next time
   db.transaction((tx) => {
@@ -147,9 +193,9 @@ async function push(db: Db, remote: RemoteStore, report: ReportStep): Promise<nu
 
 // Cover history: the same last-write-wins pull and push as the games, with its own checkpoint. Entries for games this
 // computer doesn't have are kept too (their tombstones still tell the image sync which files to delete)
-async function pullCovers(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
+async function pullCovers(db: Db, remote: RemoteStore, log: SyncLog): Promise<number> {
   const checkpoint = Number(readState(db, "coverCheckpoint") ?? 0);
-  report("Checking the cloud for changed covers");
+  log.step("Checking the cloud for changed covers");
   const changed = await remote.changedCoversSince(checkpoint);
   if (changed.length === 0) return 0;
 
@@ -161,6 +207,8 @@ async function pullCovers(db: Db, remote: RemoteStore, report: ReportStep): Prom
       .all()
       .map((row) => [row.id, row.updatedAt.getTime()])
   );
+  const titles = titlesOf(db, changed.map((cover) => cover.gameId));
+  const made: SyncChange[] = [];
   let applied = 0;
   db.transaction((tx) => {
     for (const cover of changed) {
@@ -170,14 +218,16 @@ async function pullCovers(db: Db, remote: RemoteStore, report: ReportStep): Prom
       const row = { game_id: cover.gameId, image: cover.image, created_at: cover.createdAt, updated_at: cover.updatedAt, deleted_at: cover.deletedAt, dirty: false };
       tx.insert(covers).values({ id: cover.id, ...row }).onConflictDoUpdate({ target: covers.id, set: row }).run();
       applied++;
+      made.push(coverChange("local", !!cover.deletedAt, titles.get(cover.gameId), cover.image));
     }
     const newCheckpoint = changed.reduce((latest, cover) => Math.max(latest, cover.serverUpdatedAt), checkpoint);
     writeState(tx, "coverCheckpoint", String(newCheckpoint));
   });
+  made.forEach(log.change);
   return applied;
 }
 
-async function pushCovers(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
+async function pushCovers(db: Db, remote: RemoteStore, log: SyncLog): Promise<number> {
   const records: RemoteCover[] = db
     .select()
     .from(covers)
@@ -192,8 +242,10 @@ async function pushCovers(db: Db, remote: RemoteStore, report: ReportStep): Prom
       deletedAt: cover.deleted_at,
     }));
   if (records.length === 0) return 0;
-  report(`Uploading ${plural(records.length, "cover change")}`);
+  log.step(`Uploading ${plural(records.length, "cover change")}`);
   await remote.pushCovers(records);
+  const titles = titlesOf(db, records.map((record) => record.gameId));
+  for (const record of records) log.change(coverChange("cloud", !!record.deletedAt, titles.get(record.gameId), record.image));
   db.transaction((tx) => {
     for (const record of records) {
       tx.update(covers).set({ dirty: false }).where(and(eq(covers.id, record.id), eq(covers.updated_at, record.updatedAt))).run();
@@ -204,9 +256,9 @@ async function pushCovers(db: Db, remote: RemoteStore, report: ReportStep): Prom
 
 // Dropdown options: the same last-write-wins pull and push again. Tombstones are kept (they're tiny), so an option is
 // only ever gone because someone removed it, never because a computer that doesn't have it synced
-async function pullSelectItems(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
+async function pullSelectItems(db: Db, remote: RemoteStore, log: SyncLog): Promise<number> {
   const checkpoint = Number(readState(db, "selectItemCheckpoint") ?? 0);
-  report("Checking the cloud for changed dropdown options");
+  log.step("Checking the cloud for changed dropdown options");
   const changed = await remote.changedSelectItemsSince(checkpoint);
   if (changed.length === 0) return 0;
 
@@ -218,6 +270,7 @@ async function pullSelectItems(db: Db, remote: RemoteStore, report: ReportStep):
       .all()
       .map((row) => [row.id, row.updatedAt.getTime()])
   );
+  const made: SyncChange[] = [];
   let applied = 0;
   db.transaction((tx) => {
     for (const item of changed) {
@@ -228,14 +281,16 @@ async function pullSelectItems(db: Db, remote: RemoteStore, report: ReportStep):
       const row = { list: item.list, value: item.value, created_at: item.createdAt, updated_at: item.updatedAt, deleted_at: item.deletedAt, dirty: false };
       tx.insert(selectItems).values({ id: item.id, ...row }).onConflictDoUpdate({ target: selectItems.id, set: row }).run();
       applied++;
+      made.push(optionChange("local", !!item.deletedAt, item.list, item.value));
     }
     const newCheckpoint = changed.reduce((latest, item) => Math.max(latest, item.serverUpdatedAt), checkpoint);
     writeState(tx, "selectItemCheckpoint", String(newCheckpoint));
   });
+  made.forEach(log.change);
   return applied;
 }
 
-async function pushSelectItems(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
+async function pushSelectItems(db: Db, remote: RemoteStore, log: SyncLog): Promise<number> {
   const records: RemoteSelectItem[] = db
     .select()
     .from(selectItems)
@@ -250,8 +305,9 @@ async function pushSelectItems(db: Db, remote: RemoteStore, report: ReportStep):
       deletedAt: item.deleted_at,
     }));
   if (records.length === 0) return 0;
-  report(`Uploading ${plural(records.length, "dropdown option change")}`);
+  log.step(`Uploading ${plural(records.length, "dropdown option change")}`);
   await remote.pushSelectItems(records);
+  for (const record of records) log.change(optionChange("cloud", !!record.deletedAt, record.list, record.value));
   db.transaction((tx) => {
     for (const record of records) {
       tx.update(selectItems)
@@ -273,13 +329,13 @@ function purgeSyncedTombstones(db: Db) {
 }
 
 // Pull first, so a newer remote edit wins over an older local one before anything is uploaded
-export async function runSync(db: Db, remote: RemoteStore, report: ReportStep = () => {}): Promise<SyncResult> {
+export async function runSync(db: Db, remote: RemoteStore, log: SyncLog = quiet): Promise<SyncResult> {
   // Games before their covers, so a cover's game is usually there by the time the cover arrives
-  const pulled = (await pull(db, remote, report)) + (await pullCovers(db, remote, report)) + (await pullSelectItems(db, remote, report));
-  const pushed = (await push(db, remote, report)) + (await pushCovers(db, remote, report)) + (await pushSelectItems(db, remote, report));
+  const pulled = (await pull(db, remote, log)) + (await pullCovers(db, remote, log)) + (await pullSelectItems(db, remote, log));
+  const pushed = (await push(db, remote, log)) + (await pushCovers(db, remote, log)) + (await pushSelectItems(db, remote, log));
   purgeSyncedTombstones(db);
 
   const syncedAt = new Date();
   writeState(db, "lastSyncedAt", String(syncedAt.getTime()));
-  return { pushed, pulled, syncedAt, warnings: [] };
+  return { pushed, pulled, syncedAt };
 }

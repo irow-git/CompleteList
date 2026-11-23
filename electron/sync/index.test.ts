@@ -6,6 +6,7 @@ import type { Db } from "../db";
 import { listGames } from "../db/games";
 import * as schema from "../db/schema";
 import type { ImageSync } from "../images/imageSync";
+import type { SyncReport } from "../../src/interfaces";
 import type { RemoteMetadata, RemoteStore } from "./remote";
 
 // The service's own parts are replaced: no Electron (settings) and no network (Firestore)
@@ -61,15 +62,16 @@ test("reports each step as it starts", async () => {
   const steps: string[] = [];
   const sync = createSyncService(device(), noImages, { onStep: (step) => steps.push(step) });
 
-  const result = await sync.run();
+  const report = await sync.run();
 
-  expect(result.warnings).toEqual(["Image sync isn't set up, so cover images weren't synced. Connect it under Settings → Image sync."]);
+  expect(report.warnings).toEqual(["Image sync isn't set up, so cover images weren't synced. Connect it under Settings → Image sync."]);
   expect(steps).toEqual([
     "Signing in to Firebase",
     "Checking the cloud for changed games",
     "Checking the cloud for changed covers",
     "Checking the cloud for changed dropdown options",
   ]);
+  expect(report).toMatchObject({ error: null, failedStep: null, steps, changes: [], result: { pulled: 0, pushed: 0 } });
 });
 
 test("gives up after a minute, naming the stuck step, and ignores the answer if it comes later", async () => {
@@ -84,14 +86,15 @@ test("gives up after a minute, naming the stuck step, and ignores the answer if 
   const db = device();
   const sync = createSyncService(db, noImages, { onStep: (step) => steps.push(step) });
 
-  const run = sync.run();
-  const outcome = expect(run).rejects.toThrow(
-    "Sync timed out after 1 minute while checking the cloud for changed games. Check your internet connection and try again"
-  );
+  let report: SyncReport | undefined;
+  sync.run().then((done) => (report = done));
   await vi.advanceTimersByTimeAsync(59_999);
-  expect(answer).toBeTypeOf("function"); // still waiting on Firestore
+  expect(report).toBeUndefined(); // still waiting on Firestore
   await vi.advanceTimersByTimeAsync(1);
-  await outcome;
+  expect(report).toMatchObject({ result: null, failedStep: "Checking the cloud for changed games" });
+  expect(report!.error).toMatch(
+    /^Sync timed out after 1 minute while checking the cloud for changed games\. Check your internet connection and try again/
+  );
 
   // The late answer is dropped: nothing more is fetched, written or reported
   const at = new Date();
@@ -103,17 +106,18 @@ test("gives up after a minute, naming the stuck step, and ignores the answer if 
 
   // And the next sync starts afresh instead of joining the abandoned one
   remote.current = emptyRemote();
-  await expect(sync.run()).resolves.toMatchObject({ pulled: 0, pushed: 0 });
+  await expect(sync.run()).resolves.toMatchObject({ error: null, result: { pulled: 0, pushed: 0 } });
 });
 
 test("rclone missing is only a warning when Firebase is set up: the games still sync", async () => {
   remote.current = emptyRemote();
   const { imageSync, sync: syncImages } = images(false);
 
-  const result = await createSyncService(device(), imageSync).run();
+  const report = await createSyncService(device(), imageSync).run();
 
-  expect(result.warnings).toEqual(["rclone wasn't found, so cover images weren't synced. Install it, or set its path under Settings → Image sync."]);
-  expect(result.images).toBeUndefined();
+  expect(report.error).toBeNull();
+  expect(report.warnings).toEqual(["rclone wasn't found, so cover images weren't synced. Install it, or set its path under Settings → Image sync."]);
+  expect(report.result?.images).toBeUndefined();
   expect(syncImages).not.toHaveBeenCalled();
 });
 
@@ -121,10 +125,10 @@ test("Firebase missing is only a warning when image sync can run: the images sti
   remote.firebase = false;
   const { imageSync } = images(true);
 
-  const result = await createSyncService(device(), imageSync).run();
+  const report = await createSyncService(device(), imageSync).run();
 
-  expect(result.images).toEqual({ uploaded: 1, downloaded: 2, deleted: 0, missing: 0 });
-  expect(result.warnings).toEqual([
+  expect(report.result?.images).toEqual({ uploaded: 1, downloaded: 2, deleted: 0, missing: 0 });
+  expect(report.warnings).toEqual([
     "Firebase isn't set up, so games, cover history and dropdown options weren't synced. Connect it under Settings → Game sync.",
   ]);
 });
@@ -132,8 +136,9 @@ test("Firebase missing is only a warning when image sync can run: the images sti
 test("it's an error only when neither half can run", async () => {
   remote.firebase = false;
 
-  await expect(createSyncService(device(), noImages).run()).rejects.toThrow("Sync isn't set up yet");
-  await expect(createSyncService(device(), images(false).imageSync).run()).rejects.toThrow(
-    "Nothing could sync: Firebase isn't set up and rclone wasn't found."
-  );
+  expect(await createSyncService(device(), noImages).run()).toMatchObject({ result: null, error: expect.stringContaining("Sync isn't set up yet") });
+  const report = await createSyncService(device(), images(false).imageSync).run();
+  expect(report.error).toMatch(/^Nothing could sync: Firebase isn't set up and rclone wasn't found\./);
+  // The warnings say which half is missing what
+  expect(report.warnings).toHaveLength(2);
 });

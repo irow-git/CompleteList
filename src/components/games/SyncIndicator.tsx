@@ -9,7 +9,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 
 // Last sync time, unsynced change count and the Sync button. Syncing only ever happens when the button is pressed
 export const SyncIndicator: React.FC = () => {
-  const { status, running, error, refresh, run } = useSyncStore();
+  const { status, running, error, report, refresh, run, openDetails } = useSyncStore();
   // Re-render every minute so "5 minutes ago" keeps up
   const [, setTick] = useState(0);
 
@@ -43,9 +43,15 @@ export const SyncIndicator: React.FC = () => {
         {running ? "Syncing…" : `${lastSynced} · ${pending}`}
       </span>
       {error && !running && (
-        <span className="max-w-[320px] truncate text-error" title={error}>
+        // Opens the details of the sync that failed (an error from reading the status has none)
+        <button
+          type="button"
+          onClick={report?.error ? openDetails : undefined}
+          className={cn("max-w-[320px] truncate text-left text-error", report?.error && "cursor-pointer underline decoration-dotted underline-offset-4")}
+          title={report?.error ? `${error}\n\nClick for details` : error}
+        >
           {error}
-        </span>
+        </button>
       )}
       <div className="relative drop-shadow-[0px_1px_1px_black]">
         <button

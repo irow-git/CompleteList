@@ -137,8 +137,36 @@ export interface SyncResult {
   syncedAt: Date;
   // Only when image sync is connected
   images?: ImageSyncResult;
+}
+
+// One thing a sync changed, for its details. "local" changes came down from the cloud to this computer, "cloud" ones
+// went up from it
+export interface SyncChange {
+  side: "local" | "cloud";
+  kind: "game" | "dlc" | "cover" | "option" | "image";
+  action: "added" | "changed" | "deleted";
+  // The game's title (for covers and images too), or the dropdown option's value
+  title: string;
+  // More about what it is: "DLC of …", "Platform option"
+  note?: string;
+  // The properties that differ, as text ready to show; null where there was none. Empty on a deletion, and on a game
+  // uploaded again unchanged
+  fields: { name: string; from: string | null; to: string | null }[];
+}
+
+// Everything about one sync, finished or not. The sync never rejects with it: a failure is in error
+export interface SyncReport {
+  // null when it failed; whatever it changed before failing is still in changes
+  result: SyncResult | null;
+  error: string | null;
+  // The step it was on when it failed
+  failedStep: string | null;
   // The half that couldn't run because it isn't set up (Firebase, or image sync / rclone). The other half still synced
   warnings: string[];
+  steps: string[];
+  changes: SyncChange[];
+  startedAt: Date;
+  finishedAt: Date;
 }
 
 export type ImageSyncProviderId = "drive" | "pcloud";

@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, ArrowUp } from "pixelarticons/react";
 import { useRulerShown } from "@/components/games/CardRuler";
 import { cn } from "@/lib/utils";
 import { SyncToast } from "@/components/SyncToast";
+import { SyncDetailsDialog } from "@/components/SyncDetailsDialog";
 
 type MainProps = {
   children?: React.ReactNode;
@@ -123,6 +124,7 @@ const Main: React.FC<MainProps> = ({ children }) => {
       </div>
 
       <SyncToast />
+      <SyncDetailsDialog />
 
       {hasBackToTop && (
         // Hidden rather than removed at the top, so the sidebar's bottom edge doesn't move

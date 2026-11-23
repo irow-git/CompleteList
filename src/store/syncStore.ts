@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { SyncResult, SyncStatus } from "../interfaces";
+import { SyncReport, SyncStatus } from "../interfaces";
 import { ipcErrorMessage } from "@/lib/ipcError";
 import { useGamesStore } from "./gamesStore";
 import { useSelectItemsStore } from "./selectItemsStore";
@@ -8,30 +8,30 @@ interface SyncState {
   status: SyncStatus | null; // null until first loaded
   running: boolean;
   error?: string;
-  lastResult?: SyncResult;
 
-  // The latest sync, for the progress toast: the steps the main process reported, in order, and when it started and
-  // ended. The toast shows while toastOpen is true
+  // The latest sync's report, once it's finished (see SyncReport). Kept until the next sync, for the details dialog
+  report: SyncReport | null;
+  // The running sync's steps as the main process reports them, for the progress toast; replaced by the report's when
+  // it finishes
   steps: string[];
   startedAt?: number;
-  finishedAt?: number;
   toastOpen: boolean;
+  detailsOpen: boolean;
 
   refresh(): Promise<void>;
   run(): Promise<void>;
   dismissToast(): void;
+  openDetails(): void;
+  closeDetails(): void;
 }
-
-// Subscribed once, on the first sync, and never dropped: Electron doesn't keep the progress messages in order with the
-// sync's result, so a step can arrive just after it (always, when it fails at once). Unsubscribing when the result
-// came would lose it
-let listening = false;
 
 export const useSyncStore = create<SyncState>()((set, get) => ({
   status: null,
   running: false,
+  report: null,
   steps: [],
   toastOpen: false,
+  detailsOpen: false,
 
   refresh: async () => {
     try {
@@ -43,24 +43,26 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 
   run: async () => {
     if (get().running) return;
-    set({ running: true, error: undefined, lastResult: undefined, steps: [], startedAt: Date.now(), finishedAt: undefined, toastOpen: true });
-    if (!listening) {
-      window.api.sync.onProgress((step) => set((state) => ({ steps: [...state.steps, step] })));
-      listening = true;
-    }
+    set({ running: true, error: undefined, report: null, steps: [], startedAt: Date.now(), toastOpen: true });
+    // Electron doesn't keep these in order with the result, so a step can arrive after the sync has finished. Those
+    // are ignored: the report has every step
+    const unsubscribe = window.api.sync.onProgress((step) => set((state) => (state.running && !state.report ? { steps: [...state.steps, step] } : {})));
     try {
-      const lastResult = await window.api.sync.run();
-      set({ lastResult });
+      const report = await window.api.sync.run();
+      set({ report, steps: report.steps, error: report.error ?? undefined });
       // Pulled changes can touch any page, so the list is re-read too, and so are the dropdown options
-      set((state) => ({ steps: [...state.steps, "Refreshing the list"] }));
-      await Promise.all([useGamesStore.getState().reload(), useSelectItemsStore.getState().load()]);
+      // (also after a failure, if it got that far)
+      if (report.changes.some((change) => change.side === "local")) await Promise.all([useGamesStore.getState().reload(), useSelectItemsStore.getState().load()]);
     } catch (error) {
       set({ error: ipcErrorMessage(error) });
     } finally {
-      set({ running: false, finishedAt: Date.now() });
+      unsubscribe();
+      set({ running: false });
       await get().refresh();
     }
   },
 
   dismissToast: () => set({ toastOpen: false }),
+  openDetails: () => set({ detailsOpen: true }),
+  closeDetails: () => set({ detailsOpen: false }),
 }));
