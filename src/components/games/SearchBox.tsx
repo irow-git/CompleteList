@@ -4,6 +4,7 @@ import { Close, Search } from "pixelarticons/react";
 import { useGamesStore } from "@/store/gamesStore";
 import { Input } from "@/components/ui/input";
 import { RemoveButton } from "@/components/ui/remove-button";
+import { cn } from "cn";
 
 const SEARCH_DELAY_MS = 500;
 
@@ -33,8 +34,7 @@ export const SearchBox: React.FC = () => {
   }, [text, search, setSearch]);
 
   return (
-    <div className="relative w-[360px] drop-shadow-[0px_1px_1px_black]">
-      {/* Above the field, in the toolbar's spare space, so it doesn't push the other controls around */}
+    <div className={cn("relative w-[360px]", "drop-shadow-[0px_1px_1px_black]", seriesFilter && "mt-6")}>
       {seriesFilter && (
         <div className="absolute bottom-full left-0 mb-2 max-w-full">
           <span
