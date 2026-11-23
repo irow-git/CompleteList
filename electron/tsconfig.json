@@ -1,0 +1,6 @@
+{
+  // Lets the editor's TS server find the electron settings (it only looks for files named tsconfig.json).
+  // The real config is ../tsconfig.electron.json, which `yarn type-check` uses
+  "extends": "../tsconfig.electron.json",
+  "include": ["."]
+}
