@@ -1,6 +1,7 @@
 import type { SyncChange, SyncReport, SyncResult } from "../../src/interfaces";
 import type { Db } from "../db";
 import { coversForImageSync } from "../db/covers";
+import { saveSyncReport } from "../db/syncReports";
 import type { Cover, ImageSync } from "../images/imageSync";
 import { shortImage, titlesOf } from "./changes";
 import { recordSync, runSync, syncStatus, type ReportStep, type SyncLog } from "./engine";
@@ -151,10 +152,20 @@ export function createSyncService(db: Db, imageSync: ImageSync, { onStep = () =>
   return {
     // Cheap: file checks and one count query, so it's fine to call after every change
     status: () => syncStatus(db, isSyncConfigured() || imageSync.isConnected()),
+    // Syncs that changed something are kept in the sync history
     run: () => {
-      running ??= syncWithTimeout().finally(() => {
-        running = null;
-      });
+      running ??= syncWithTimeout()
+        .then((report) => {
+          try {
+            saveSyncReport(db, report);
+          } catch (error) {
+            console.error("Couldn't save the sync report", error); // the sync itself still went fine
+          }
+          return report;
+        })
+        .finally(() => {
+          running = null;
+        });
       return running;
     },
   };

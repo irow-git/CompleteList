@@ -16,6 +16,7 @@ import type {
   SelectItem,
   SelectList,
   SeriesSummary,
+  SyncHistoryPage,
   SyncReport,
   SyncStatus,
 } from "../src/interfaces";
@@ -103,6 +104,9 @@ export interface ElectronApi {
     // Pulls remote changes, then pushes local ones, and reports on it. A failure (sync not set up, Firebase unreachable,
     // over a minute) doesn't reject: it's the report's error, alongside whatever was changed before it
     run(): Promise<SyncReport>;
+    // The syncs that changed something, newest first, and one's full report (null if it's been dropped)
+    history(page: number, pageSize: number): Promise<SyncHistoryPage>;
+    report(id: number): Promise<SyncReport | null>;
     // A short sentence as each step of a running sync starts ("Uploading 3 game changes"). Returns an unsubscribe
     onProgress(listener: (step: string) => void): () => void;
   };

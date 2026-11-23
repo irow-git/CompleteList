@@ -91,3 +91,21 @@ export const selectItems = sqliteTable(
   },
   (table) => [index("select_items_list_idx").on(table.list), index("select_items_dirty_idx").on(table.dirty)]
 );
+
+// Local only, never synced: the reports of past syncs that changed something (see SyncReport), for the sync history
+// in Settings. The counts are kept as columns so the list doesn't have to read every report
+export const syncReports = sqliteTable(
+  "sync_reports",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    started_at: integer({ mode: "timestamp_ms" }).notNull(),
+    finished_at: integer({ mode: "timestamp_ms" }).notNull(),
+    failed: integer({ mode: "boolean" }).notNull(),
+    warnings: integer().notNull(),
+    local_changes: integer().notNull(),
+    cloud_changes: integer().notNull(),
+    // The rest of the report as JSON: result, error, failedStep, warnings, steps, changes
+    report: text().notNull(),
+  },
+  (table) => [index("sync_reports_started_at_idx").on(table.started_at)]
+);

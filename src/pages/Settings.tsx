@@ -21,6 +21,7 @@ import { useSyncStore } from "@/store/syncStore";
 import { ipcErrorMessage } from "@/lib/ipcError";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ImageSyncSettings from "./ImageSyncSettings";
+import { SyncHistory } from "./SyncHistory";
 
 type SettingsFormValues = FirebaseConfig & { email: string; password: string; createAccount: boolean };
 
@@ -240,12 +241,16 @@ const Settings: React.FC = () => (
       <TabsList>
         <TabsTrigger value="games">Game sync</TabsTrigger>
         <TabsTrigger value="images">Image sync</TabsTrigger>
+        <TabsTrigger value="history">Sync history</TabsTrigger>
       </TabsList>
       <TabsContent value="games">
         <GameSyncSettings />
       </TabsContent>
       <TabsContent value="images">
         <ImageSyncSettings />
+      </TabsContent>
+      <TabsContent value="history">
+        <SyncHistory />
       </TabsContent>
     </Tabs>
   </Panel>

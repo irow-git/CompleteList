@@ -59,6 +59,8 @@ const api: ElectronApi = {
   sync: {
     status: () => ipcRenderer.invoke("sync:status"),
     run: () => ipcRenderer.invoke("sync:run"),
+    history: (page, pageSize) => ipcRenderer.invoke("sync:history", page, pageSize),
+    report: (id) => ipcRenderer.invoke("sync:report", id),
     onProgress: (listener) => {
       const handler = (_event: IpcRendererEvent, step: string) => listener(step);
       ipcRenderer.on("sync:progress", handler);

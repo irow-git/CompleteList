@@ -154,16 +154,15 @@ const Notice: React.FC<{ tone: "error" | "warning"; title: string; children: Rea
 
 const statusOf = (report: SyncReport) => (report.error ? "Failed" : report.warnings.length > 0 ? "Partly synced" : "Complete");
 
-// The latest sync in full: its error and warnings, then every change on each side, then its steps
-export const SyncDetailsDialog: React.FC = () => {
-  const { report, detailsOpen, closeDetails } = useSyncStore();
+// A sync in full: its error and warnings, then every change on each side, then its steps
+export const SyncReportDialog: React.FC<{ report: SyncReport | null; open: boolean; onClose: () => void }> = ({ report, open, onClose }) => {
   if (!report) return null;
 
   const local = report.changes.filter((change) => change.side === "local");
   const cloud = report.changes.filter((change) => change.side === "cloud");
 
   return (
-    <Dialog open={detailsOpen} onOpenChange={(open) => !open && closeDetails()}>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="flex max-h-[85vh] w-[820px] flex-col p-0">
         <div className="border-b border-black/10 px-6 pt-5 pb-3 pr-14">
           <DialogTitle>Sync details</DialogTitle>
@@ -214,4 +213,10 @@ export const SyncDetailsDialog: React.FC = () => {
       </DialogContent>
     </Dialog>
   );
+};
+
+// The latest sync's, opened from the toast and the toolbar
+export const SyncDetailsDialog: React.FC = () => {
+  const { report, detailsOpen, closeDetails } = useSyncStore();
+  return <SyncReportDialog report={report} open={detailsOpen} onClose={closeDetails} />;
 };

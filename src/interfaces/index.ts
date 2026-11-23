@@ -169,6 +169,22 @@ export interface SyncReport {
   finishedAt: Date;
 }
 
+// A past sync in the sync history: when it ran and how it went, without its changes (see SyncReport for those)
+export interface SyncHistoryEntry {
+  id: number;
+  startedAt: Date;
+  finishedAt: Date;
+  failed: boolean;
+  warnings: number;
+  localChanges: number;
+  cloudChanges: number;
+}
+
+export interface SyncHistoryPage {
+  entries: SyncHistoryEntry[]; // newest first
+  total: number;
+}
+
 export type ImageSyncProviderId = "drive" | "pcloud";
 
 export interface ImageSyncStatus {

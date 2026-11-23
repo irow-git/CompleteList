@@ -5,6 +5,7 @@ import { Db, openDatabase } from "./db";
 import { createGame, getGame, listCheckpoints, listGames, removeCover, removeGame, updateGame } from "./db/games";
 import { coverFilesToKeep, listCovers } from "./db/covers";
 import { addSelectItems, listSelectItems, removeSelectItem } from "./db/selectItems";
+import { getSyncReport, listSyncReports } from "./db/syncReports";
 import { assignSeries, deleteSeries, detectAll, getSeries, listSeries, saveSeries, suggestForGame, suggestForTitle } from "./db/series";
 import { createSyncService } from "./sync";
 import { clearFirebaseSettings, getFirebaseSettings, saveFirebaseSettings } from "./sync/settings";
@@ -130,6 +131,8 @@ function registerIpcHandlers(db: Db) {
   });
   ipcMain.handle("sync:status", () => sync.status());
   ipcMain.handle("sync:run", () => sync.run());
+  ipcMain.handle("sync:history", (_event, page, pageSize) => listSyncReports(db, Number(page) || 0, Number(pageSize) || 25));
+  ipcMain.handle("sync:report", (_event, id) => getSyncReport(db, Number(id)));
 }
 
 // Files no cover in the history points at: pictures picked in a form that was never saved, deleted covers, and
