@@ -137,6 +137,8 @@ export interface SyncResult {
   syncedAt: Date;
   // Only when image sync is connected
   images?: ImageSyncResult;
+  // The half that couldn't run because it isn't set up (Firebase, or image sync / rclone). The other half still synced
+  warnings: string[];
 }
 
 export type ImageSyncProviderId = "drive" | "pcloud";

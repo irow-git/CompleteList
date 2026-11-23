@@ -157,14 +157,31 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
     // Covers are named by their content, in a folder per game, so syncing is: upload the covers the cloud doesn't have,
     // download the ones this computer's games use but doesn't have, and delete the ones deleted from a history (here
     // and in the cloud). Nothing is ever overwritten. One recursive listing covers every game's folder
-    sync: async (coversToSync: { live: Cover[]; deleted: Cover[] }): Promise<ImageSyncResult> => {
+    // An aborted signal stops rclone where it is and rejects with the signal's reason
+    sync: async (
+      coversToSync: { live: Cover[]; deleted: Cover[] },
+      { signal, report = () => {} }: { signal?: AbortSignal; report?: (step: string) => void } = {}
+    ): Promise<ImageSyncResult> => {
       const { provider, folder } = readSettings();
       if (!provider) throw new Error("Image sync isn't connected.");
-      const run = await rclone();
+      const providerName = IMAGE_SYNC_PROVIDERS.find((p) => p.id === provider)?.label ?? provider;
+      const rcloneRun = await rclone();
+      const run = async (args: string[]) => {
+        signal?.throwIfAborted();
+        try {
+          return await rcloneRun(args, { signal });
+        } catch (error) {
+          // spawn rejects with a generic AbortError; the signal's reason says why
+          if (signal?.aborted) throw signal.reason;
+          throw error;
+        }
+      };
       const remote = `${remoteName(provider)}:${folder}`;
 
+      report(`Reaching the cloud folder on ${providerName}`);
       const made = await run(["mkdir", remote]);
       if (made.code !== 0) throw failure("Reaching the cloud folder", made);
+      report("Listing the covers in the cloud");
       const listed = await run(["lsf", remote, "--recursive", "--files-only"]);
       if (listed.code !== 0) throw failure("Listing the cloud folder", listed);
       const inCloud = new Set(listed.stdout.split("\n").map((line) => line.trim()).filter(Boolean));
@@ -182,6 +199,7 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
       // rclone reads the files to act on from a list, as paths relative to the folders it's given
       const withList = async (files: string[], action: string, args: (list: string) => string[]) => {
         if (files.length === 0) return;
+        report(`${action} (${files.length})`);
         fs.mkdirSync(dataDir, { recursive: true });
         const list = path.join(dataDir, `files-${Date.now()}.txt`);
         fs.writeFileSync(list, files.join("\n"));
@@ -198,6 +216,7 @@ export function createImageSync({ dataDir, imagesDir, findRclone, runner }: Imag
       await withList(toDownload, "Downloading covers", copyArgs(remote, imagesDir));
       await withList(toDelete, "Deleting covers from the cloud", (list) => ["delete", remote, "--files-from", list]);
       // Deleted covers that came from another computer's history go from this one too
+      signal?.throwIfAborted();
       for (const cover of deleted) removeImage(imagesDir, cover.gameId, cover.image);
 
       return {

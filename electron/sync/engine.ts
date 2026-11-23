@@ -11,6 +11,11 @@ type SyncKey = "checkpoint" | "coverCheckpoint" | "selectItemCheckpoint" | "last
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
+// Called with a short sentence before each step of a sync, for showing what it's doing
+export type ReportStep = (step: string) => void;
+
+const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+
 const readState = (db: Db, key: SyncKey) => db.select().from(syncState).where(eq(syncState.key, key)).get()?.value;
 
 const writeState = (db: Db | Tx, key: SyncKey, value: string) =>
@@ -43,8 +48,9 @@ export function syncStatus(db: Db, configured: boolean): SyncStatus {
 }
 
 // Applies remote changes that are newer than the local copy (last write wins, by updated_at) and returns how many
-async function pull(db: Db, remote: RemoteStore): Promise<number> {
+async function pull(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
   const checkpoint = Number(readState(db, "checkpoint") ?? 0);
+  report("Checking the cloud for changed games");
   const changed = await remote.changedMetadataSince(checkpoint);
   if (changed.length === 0) return 0;
 
@@ -57,6 +63,7 @@ async function pull(db: Db, remote: RemoteStore): Promise<number> {
   const local = new Map(localRows.map((row) => [row.id, row.updatedAt.getTime()]));
   const localSeries = new Map(localRows.map((row) => [row.id, row.series]));
   const newer = changed.filter((meta) => meta.updatedAt.getTime() > (local.get(meta.id) ?? -Infinity));
+  if (newer.length > 0) report(`Downloading ${plural(newer.length, "changed game")}`);
   const details = await remote.fetchDetails(newer.filter((meta) => !meta.deletedAt).map((meta) => meta.id));
 
   // Base games first, so a DLC's parent is already there when the DLC is written
@@ -106,7 +113,7 @@ async function pull(db: Db, remote: RemoteStore): Promise<number> {
 }
 
 // Uploads every local change (tombstones included) and returns how many
-async function push(db: Db, remote: RemoteStore): Promise<number> {
+async function push(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
   const records: PushRecord[] = db
     .select({ game: games, meta: gameMetadata })
     .from(games)
@@ -123,6 +130,7 @@ async function push(db: Db, remote: RemoteStore): Promise<number> {
     }));
   if (records.length === 0) return 0;
 
+  report(`Uploading ${plural(records.length, "game change")}`);
   await remote.push(records);
 
   // Only rows still exactly as uploaded are clean: anything edited while the upload ran stays dirty for next time
@@ -139,8 +147,9 @@ async function push(db: Db, remote: RemoteStore): Promise<number> {
 
 // Cover history: the same last-write-wins pull and push as the games, with its own checkpoint. Entries for games this
 // computer doesn't have are kept too (their tombstones still tell the image sync which files to delete)
-async function pullCovers(db: Db, remote: RemoteStore): Promise<number> {
+async function pullCovers(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
   const checkpoint = Number(readState(db, "coverCheckpoint") ?? 0);
+  report("Checking the cloud for changed covers");
   const changed = await remote.changedCoversSince(checkpoint);
   if (changed.length === 0) return 0;
 
@@ -168,7 +177,7 @@ async function pullCovers(db: Db, remote: RemoteStore): Promise<number> {
   return applied;
 }
 
-async function pushCovers(db: Db, remote: RemoteStore): Promise<number> {
+async function pushCovers(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
   const records: RemoteCover[] = db
     .select()
     .from(covers)
@@ -183,6 +192,7 @@ async function pushCovers(db: Db, remote: RemoteStore): Promise<number> {
       deletedAt: cover.deleted_at,
     }));
   if (records.length === 0) return 0;
+  report(`Uploading ${plural(records.length, "cover change")}`);
   await remote.pushCovers(records);
   db.transaction((tx) => {
     for (const record of records) {
@@ -194,8 +204,9 @@ async function pushCovers(db: Db, remote: RemoteStore): Promise<number> {
 
 // Dropdown options: the same last-write-wins pull and push again. Tombstones are kept (they're tiny), so an option is
 // only ever gone because someone removed it, never because a computer that doesn't have it synced
-async function pullSelectItems(db: Db, remote: RemoteStore): Promise<number> {
+async function pullSelectItems(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
   const checkpoint = Number(readState(db, "selectItemCheckpoint") ?? 0);
+  report("Checking the cloud for changed dropdown options");
   const changed = await remote.changedSelectItemsSince(checkpoint);
   if (changed.length === 0) return 0;
 
@@ -224,7 +235,7 @@ async function pullSelectItems(db: Db, remote: RemoteStore): Promise<number> {
   return applied;
 }
 
-async function pushSelectItems(db: Db, remote: RemoteStore): Promise<number> {
+async function pushSelectItems(db: Db, remote: RemoteStore, report: ReportStep): Promise<number> {
   const records: RemoteSelectItem[] = db
     .select()
     .from(selectItems)
@@ -239,6 +250,7 @@ async function pushSelectItems(db: Db, remote: RemoteStore): Promise<number> {
       deletedAt: item.deleted_at,
     }));
   if (records.length === 0) return 0;
+  report(`Uploading ${plural(records.length, "dropdown option change")}`);
   await remote.pushSelectItems(records);
   db.transaction((tx) => {
     for (const record of records) {
@@ -261,13 +273,13 @@ function purgeSyncedTombstones(db: Db) {
 }
 
 // Pull first, so a newer remote edit wins over an older local one before anything is uploaded
-export async function runSync(db: Db, remote: RemoteStore): Promise<SyncResult> {
+export async function runSync(db: Db, remote: RemoteStore, report: ReportStep = () => {}): Promise<SyncResult> {
   // Games before their covers, so a cover's game is usually there by the time the cover arrives
-  const pulled = (await pull(db, remote)) + (await pullCovers(db, remote)) + (await pullSelectItems(db, remote));
-  const pushed = (await push(db, remote)) + (await pushCovers(db, remote)) + (await pushSelectItems(db, remote));
+  const pulled = (await pull(db, remote, report)) + (await pullCovers(db, remote, report)) + (await pullSelectItems(db, remote, report));
+  const pushed = (await push(db, remote, report)) + (await pushCovers(db, remote, report)) + (await pushSelectItems(db, remote, report));
   purgeSyncedTombstones(db);
 
   const syncedAt = new Date();
   writeState(db, "lastSyncedAt", String(syncedAt.getTime()));
-  return { pushed, pulled, syncedAt };
+  return { pushed, pulled, syncedAt, warnings: [] };
 }

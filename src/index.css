@@ -11,6 +11,7 @@
   --color-ink: #47434d;
   --color-error: #ff4d4f;
   --color-error-bg: #efd7d1;
+  --color-warning: #ad6800;
   --color-highlight: cyan;
   --color-dirty-white: #F0F0F0;
   /* Solid stand-ins for faded text, for icons drawn from overlapping shapes (arrows, cloud, image, reload): a

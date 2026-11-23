@@ -124,7 +124,10 @@ function registerIpcHandlers(db: Db) {
     if (typeof url === "string" && LOGIN_URL.test(url)) shell.openExternal(url);
   });
 
-  const sync = createSyncService(db, imageSync);
+  // Every window hears the steps, so a sync started from one view still shows its progress after switching views
+  const sync = createSyncService(db, imageSync, {
+    onStep: (step) => BrowserWindow.getAllWindows().forEach((window) => window.webContents.send("sync:progress", step)),
+  });
   ipcMain.handle("sync:status", () => sync.status());
   ipcMain.handle("sync:run", () => sync.run());
 }

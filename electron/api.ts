@@ -100,7 +100,10 @@ export interface ElectronApi {
   };
   sync: {
     status(): Promise<SyncStatus>;
-    // Pulls remote changes, then pushes local ones. Rejects if sync isn't set up or Firebase is unreachable
+    // Pulls remote changes, then pushes local ones. Rejects if sync isn't set up, Firebase is unreachable, or it takes
+    // longer than a minute
     run(): Promise<SyncResult>;
+    // A short sentence as each step of a running sync starts ("Uploading 3 game changes"). Returns an unsubscribe
+    onProgress(listener: (step: string) => void): () => void;
   };
 }

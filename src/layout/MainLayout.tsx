@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useNavigationType } from "react-router-
 import { ArrowLeft, ArrowRight, ArrowUp } from "pixelarticons/react";
 import { useRulerShown } from "@/components/games/CardRuler";
 import { cn } from "@/lib/utils";
+import { SyncToast } from "@/components/SyncToast";
 
 type MainProps = {
   children?: React.ReactNode;
@@ -120,6 +121,8 @@ const Main: React.FC<MainProps> = ({ children }) => {
           {children}
         </main>
       </div>
+
+      <SyncToast />
 
       {hasBackToTop && (
         // Hidden rather than removed at the top, so the sidebar's bottom edge doesn't move
